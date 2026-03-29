@@ -609,17 +609,48 @@ export default function App() {
                 fileNo,uid:"",name:ci.examiner||"",dob:"",age:"",gender:"",
                 mobile:"",education:"",occupation:"",referral:ci.purpose||"",
                 assessor:ci.examiner||"",notes:"",
+                // Child identification
                 child_name:ci.name||"",child_dob:ci.dob||"",child_age:ci.age||"",
                 child_gender:ci.gender||"",school:ci.school||"",grade:ci.grade||"",
-                clinician_name:ci.examiner||"",validation_status:"Completed",
-                clinical_iq_estimate:fsiq,
+                // Clinician info
+                clinician_name:ci.examiner||"",
+                assessment_date:ci.date||"",
+                setting:ci.setting||"",purpose:ci.purpose||"",
+                instruments_used:(used||[]).join("; "),
+                // IQ scores
+                clinical_iq_estimate:fsiq,iq_source:"",
+                misic_fsiq:cogScores["MISIC_FSIQ"]||"",
+                misic_vci:cogScores["MISIC_VCI"]||"",
+                misic_pri:cogScores["MISIC_PRI"]||"",
+                misic_wmi:cogScores["MISIC_WMI"]||"",
+                misic_psi:cogScores["MISIC_PSI"]||"",
+                wisc_fsiq:cogScores["WISC_FSIQ"]||"",
+                sb5_fsiq:cogScores["SB5_FSIQ"]||"",
+                ravens_total:cogScores["RAVENS_Total"]||"",
+                // Adaptive & behaviour
+                vabs_abc:cogScores["VABS_ABC"]||"",
+                snap_total:cogScores["SNAP_Total"]||"",
+                snap_inattention:cogScores["SNAP_Inattention"]||"",
+                snap_hyperactivity:cogScores["SNAP_Hyperactivity"]||"",
+                // Diagnoses
+                dx_primary:T.en.domains.filter(d=>dx[d.id]?.confirmed&&Object.keys(dx).indexOf(d.id)===Object.keys(dx).findIndex(k=>dx[k]?.confirmed))[0]?.label||"",
+                dx_secondary:T.en.domains.filter(d=>dx[d.id]?.confirmed).slice(1).map(d=>d.label).join("; ")||"",
                 diagnosis_provisional:confirmedDx,
-                recommendation:imp.treatment||"",
+                // Severity
+                severity_cognitive:T.en.domains.filter(d=>d.id==="COGNITIVE"&&dx[d.id]?.confirmed).map(d=>sev[d.id]?.label||"").join("")||"",
+                severity_emotional:T.en.domains.filter(d=>["MDD","ANX","ADHD"].includes(d.id)&&dx[d.id]?.confirmed).map(d=>sev[d.id]?.label||"").join("; ")||"",
+                severity_behavioural:T.en.domains.filter(d=>["ODD","CD"].includes(d.id)&&dx[d.id]?.confirmed).map(d=>sev[d.id]?.label||"").join("; ")||"",
+                // Risk
+                cssrs_level:risk?.cssrs_level||"",
+                risk_summary:risk?.summary||"",
+                // Clinical formulation
+                clinical_impression:imp.impression||"",
+                strengths:imp.strengths||"",
+                treatment_plan:imp.treatment||"",
+                referrals:imp.referrals||"",
                 follow_up_date:imp.followUp||"",
-                vsms_total:cogScores["VABS_ABC"]||"",vsms_sq:"",vsms_ma:"",
-                conners_total:cogScores["SNAP_Total"]||"",
-                conners_inattention:cogScores["SNAP_Inattention"]||"",
-                conners_hyperactivity:cogScores["SNAP_Hyperactivity"]||"",
+                prognosis:imp.prognosis||"",
+                validation_status:"Completed",
               })
             }).catch(()=>{});
           }
