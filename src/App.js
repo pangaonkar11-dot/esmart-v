@@ -656,6 +656,26 @@ export default function App() {
           }
           setDbSubmitted_V(true);
         }} style={{padding:"10px 20px",borderRadius:8,background:"#6D28D9",color:"#fff",border:"none",fontSize:13,fontWeight:700,cursor:"pointer"}}>☁️ Save to CIBS Databank</button>
+        {ci.fileNo && (
+          <a href={`https://esmart-report.vercel.app?reg=${ci.fileNo}&mode=clinical`}
+            target="_blank" rel="noopener noreferrer"
+            style={{padding:"10px 20px",borderRadius:8,
+              background:"linear-gradient(135deg,#0d3b47,#0d5c6e)",
+              color:"#fff",fontSize:13,fontWeight:700,
+              textDecoration:"none",display:"inline-block"}}>
+            🏥 Clinical Report →
+          </a>
+        )}
+        {ci.fileNo && (
+          <a href={`https://esmart-report.vercel.app?reg=${ci.fileNo}&mode=family`}
+            target="_blank" rel="noopener noreferrer"
+            style={{padding:"10px 20px",borderRadius:8,
+              background:"linear-gradient(135deg,#0d9488,#10b981)",
+              color:"#fff",fontSize:13,fontWeight:700,
+              textDecoration:"none",display:"inline-block"}}>
+            👨‍👩‍👧 Family Report →
+          </a>
+        )}
         <button onClick={()=>{setStep(1);setCi({name:"",fileNo:"",dob:"",age:"",gender:"",school:"",grade:"",examiner:"",date:new Date().toISOString().slice(0,10),setting:"",purpose:""});setUsed([]);setCogScores({});setDx({});setSev({});setRisk({});setImp({impression:"",strengths:"",treatment:"",referrals:"",followUp:"",prognosis:""}); }} style={{padding:"10px 18px",borderRadius:8,background:"#f1f5f9",color:"#475569",border:"none",fontSize:13,fontWeight:600,cursor:"pointer"}}>🔄 New Assessment</button>
         {dbSubmitted_V&&<div style={{padding:"10px 14px",borderRadius:8,background:"#f0fdf4",border:"1px solid #86efac",fontSize:12,fontWeight:700,color:"#15803d"}}>✅ Saved to CIBS Databank (File: {ci.fileNo})</div>}
       </div>
