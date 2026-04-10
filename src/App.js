@@ -616,6 +616,20 @@ function PedigreeChart({ members, onAdd, onUpdate, onRemove, childName }) {
 // ══════════════════════════════════════════════════════════════════════════════
 //  MAIN APP
 // ══════════════════════════════════════════════════════════════════════════════
+
+// ── Report Section Wrapper ─────────────────────────────────────────────────
+const ReportSection = ({title, color="#0d3b47", icon, children}) => (
+  <div style={{marginBottom:20}}>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12,
+      paddingBottom:8,borderBottom:`2px solid ${color}20`}}>
+      <span style={{fontSize:18}}>{icon}</span>
+      <h3 style={{margin:0,fontSize:14,fontWeight:800,color,
+        textTransform:"uppercase",letterSpacing:"0.06em"}}>{title}</h3>
+    </div>
+    {children}
+  </div>
+);
+
 export default function App() {
   const [tab, setTab] = useState(0);
   const [sessionMode, setSessionMode] = useState(null); // null|"new"|"continue"|"retest"
@@ -856,6 +870,23 @@ export default function App() {
     setSaving(false);
   };
 
+  // ── Auto-save — debounced 3 seconds after any change ──────────────────
+  const autoSaveTimer = useRef(null);
+  const autoSave = useCallback(() => {
+    if (!ci.fileNo || ci.fileNo.length < 8) return;
+    clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      setSaving(true);
+      submitToDatabank().finally(()=>setSaving(false));
+    }, 3000);
+  }, [ci, diagnoses, complaints, symptoms, symptomGrades, scaleScores,
+      familyMembers, medFindings, medications, cgiS, cgiI, clinicianNote, plan]);
+
+  useEffect(() => { autoSave(); }, [
+    ci, diagnoses, complaints, symptoms, symptomGrades,
+    medications, cgiS, cgiI, clinicianNote, plan
+  ]);
+
   // ── Today ──────────────────────────────────────────────────────────────
   const today = new Date().toLocaleDateString("en-IN",{year:"numeric",month:"long",day:"numeric"});
 
@@ -872,6 +903,7 @@ export default function App() {
     {icon:"🩺",label:"Medical"},
     {icon:"💊",label:"Medications"},
     {icon:"📋",label:"Plan"},
+    {icon:"📄",label:"V Report"},
   ];
 
   const card = {background:"white",borderRadius:14,padding:"20px",marginBottom:16,boxShadow:"0 2px 12px rgba(0,0,0,0.06)",border:"1px solid #f1f5f9"};
@@ -897,12 +929,16 @@ export default function App() {
               </div>
             </div>
             <div style={{display:"flex",gap:8}}>
-              <button onClick={submitToDatabank} disabled={saving||!ci.fileNo}
-                style={{padding:"8px 16px",borderRadius:8,border:"none",fontSize:12,fontWeight:700,
-                  background:saving?"#94a3b8":dbSubmitted?"#10b981":"#0d9488",
-                  color:"white",cursor:ci.fileNo?"pointer":"not-allowed"}}>
-                {saving?"Saving...":dbSubmitted?"✅ Saved":"☁️ Save to Databank"}
-              </button>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                {saving && <span style={{fontSize:10,color:"rgba(255,255,255,0.7)"}}>⏳ Auto-saving...</span>}
+                {dbSubmitted && !saving && <span style={{fontSize:10,color:"#9FE1CB"}}>✅ Saved</span>}
+                <button onClick={submitToDatabank} disabled={saving||!ci.fileNo}
+                  style={{padding:"8px 16px",borderRadius:8,border:"none",fontSize:12,fontWeight:700,
+                    background:saving?"#94a3b8":dbSubmitted?"#10b981":"#0d9488",
+                    color:"white",cursor:ci.fileNo?"pointer":"not-allowed"}}>
+                  {saving?"Saving...":dbSubmitted?"✅ Saved":"☁️ Save"}
+                </button>
+              </div>
               {ci.fileNo&&(
                 <a href={`https://esmart-report.vercel.app?reg=${ci.fileNo}&mode=clinical`}
                   target="_blank" rel="noopener noreferrer"
@@ -1545,6 +1581,449 @@ export default function App() {
               <p style={{margin:"10px 0 0",fontSize:11,color:"#64748b",textAlign:"center"}}>
                 CIBS Nagpur · Dr. Shailesh V. Pangaonkar · {today}
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* ══ TAB 11 — STANDALONE V REPORT ══ */}
+        {tab===11 && (
+          <div>
+            <style>{`
+              @media print {
+                .no-print { display:none!important; }
+                body { background:white!important; margin:0; }
+                .report-page { box-shadow:none!important; border:none!important; }
+              }
+              @page { size: A4; margin: 18mm 16mm; }
+            `}</style>
+
+            {/* Print controls */}
+            <div className="no-print" style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
+              <button onClick={()=>window.print()}
+                style={{flex:1,minWidth:160,padding:"12px 20px",borderRadius:10,border:"none",
+                  background:"#1e293b",color:"white",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+                🖨️ Print / Save as PDF
+              </button>
+              {ci.fileNo&&(
+                <a href={`https://esmart-report.vercel.app?reg=${ci.fileNo}&mode=clinical`}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{flex:1,minWidth:160,padding:"12px 20px",borderRadius:10,
+                    background:"linear-gradient(135deg,#0d5c6e,#0d9488)",color:"white",
+                    fontSize:13,fontWeight:700,textDecoration:"none",textAlign:"center",
+                    display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  📋 Combined Report →
+                </a>
+              )}
+              <button onClick={submitToDatabank} disabled={saving||!ci.fileNo}
+                style={{flex:1,minWidth:160,padding:"12px 20px",borderRadius:10,border:"none",
+                  background:dbSubmitted?"#10b981":"#0d9488",color:"white",
+                  fontSize:13,fontWeight:700,cursor:"pointer"}}>
+                {saving?"Saving...":dbSubmitted?"✅ Saved to Databank":"☁️ Save to Databank"}
+              </button>
+            </div>
+
+            {/* ═══ REPORT DOCUMENT ═══ */}
+            <div className="report-page" style={{background:"white",boxShadow:"0 4px 40px rgba(0,0,0,0.12)",
+              borderRadius:4,overflow:"hidden",fontFamily:"'Georgia',serif"}}>
+
+              {/* Cover band */}
+              <div style={{background:"linear-gradient(135deg,#0d1f2d,#0d3b47,#0d5c6e)",
+                padding:"28px 32px 20px",color:"white",position:"relative",overflow:"hidden"}}>
+                {/* Decorative circles */}
+                <div style={{position:"absolute",right:-30,top:-30,width:140,height:140,
+                  borderRadius:"50%",background:"rgba(255,255,255,0.04)"}}/>
+                <div style={{position:"absolute",right:40,bottom:-20,width:80,height:80,
+                  borderRadius:"50%",background:"rgba(13,148,136,0.2)"}}/>
+
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",
+                  gap:16,flexWrap:"wrap",position:"relative"}}>
+                  <div>
+                    <div style={{fontSize:9,letterSpacing:"0.25em",textTransform:"uppercase",
+                      color:"#9FE1CB",marginBottom:6}}>
+                      Central Institute of Behavioural Sciences · Nagpur
+                    </div>
+                    <div style={{fontSize:24,fontWeight:800,letterSpacing:"-0.02em",marginBottom:4}}>
+                      Clinical Assessment Report
+                    </div>
+                    <div style={{fontSize:12,color:"rgba(255,255,255,0.65)"}}>
+                      eSMART-V · Clinician Validation Module · Confidential
+                    </div>
+                  </div>
+                  <div style={{textAlign:"right",fontSize:11,color:"rgba(255,255,255,0.65)",lineHeight:1.9}}>
+                    <div style={{color:"white",fontWeight:700,fontSize:13}}>{today}</div>
+                    <div>Dr. Shailesh V. Pangaonkar</div>
+                    <div>MBBS · DPM · DNB · MSc · BA</div>
+                    <div>Director & Consultant Psychiatrist</div>
+                    <div>+91 712 254 8966</div>
+                  </div>
+                </div>
+
+                {/* Child identity band */}
+                <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginTop:20,
+                  paddingTop:16,borderTop:"1px solid rgba(255,255,255,0.12)"}}>
+                  {[
+                    ["Child Name", ci.name||"—"],
+                    ["File No.", ci.fileNo||"—"],
+                    ["Date of Birth", ci.dob||"—"],
+                    ["Age / Gender", `${ci.age||"?"}yr · ${ci.gender==="M"?"Male":ci.gender==="F"?"Female":"—"}`],
+                    ["School", ci.school||"—"],
+                    ["Class / Grade", ci.grade||"—"],
+                    ["Education Level", ci.education||"—"],
+                    ["Assessment Date", ci.date||"—"],
+                    ["Setting", ci.setting||"—"],
+                    ["Referral", ci.referral||"—"],
+                    ["Examiner", ci.examiner||"—"],
+                    ["Session", sessionMode==="retest"?"Retest":"Initial"],
+                  ].map(([l,v])=>(
+                    <div key={l} style={{background:"rgba(255,255,255,0.07)",borderRadius:6,
+                      padding:"6px 10px"}}>
+                      <div style={{fontSize:8,opacity:0.55,textTransform:"uppercase",
+                        letterSpacing:"0.1em",marginBottom:2}}>{l}</div>
+                      <div style={{fontSize:11,fontWeight:600}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{padding:"24px 32px"}}>
+
+                {/* ── C+P SUMMARY BAR ── */}
+                {(cData||pData) && (
+                  <div style={{display:"grid",gridTemplateColumns:cData&&pData?"1fr 1fr":cData||pData?"1fr":"1fr 1fr",
+                    gap:10,marginBottom:20}}>
+                    {cData && (
+                      <div style={{background:"#f0f9ff",borderRadius:8,padding:"10px 14px",
+                        border:"1px solid #bae6fd"}}>
+                        <div style={{fontSize:9,fontWeight:800,color:"#0369a1",textTransform:"uppercase",
+                          letterSpacing:"0.1em",marginBottom:6}}>eSMART-C — Cognitive</div>
+                        <div style={{display:"flex",gap:16,flexWrap:"wrap",fontSize:11,color:"#1e3a5f"}}>
+                          <span>🧠 IQ <strong>{cData["FIS IQ Estimate"]||"—"}</strong> {cData["FIS IQ Band"]||""}</span>
+                          <span>💡 EQ <strong>{cData["SCSS Emotional Intelligence"]||"—"}</strong></span>
+                          <span>⚠️ CRI <strong>{cData["SCSS Combined Risk Index"]||"—"}</strong></span>
+                          <span>🎯 {cData["SCSS Cognitive Style"]||"—"}</span>
+                        </div>
+                      </div>
+                    )}
+                    {pData && (
+                      <div style={{background:"#fffbeb",borderRadius:8,padding:"10px 14px",
+                        border:"1px solid #fde68a"}}>
+                        <div style={{fontSize:9,fontWeight:800,color:"#92400e",textTransform:"uppercase",
+                          letterSpacing:"0.1em",marginBottom:6}}>eSMART-P — Parent Report</div>
+                        <div style={{display:"flex",gap:16,flexWrap:"wrap",fontSize:11,color:"#78350f"}}>
+                          <span>⚠️ Risk <strong style={{color:pData["Risk Level"]==="LEVEL 3"?"#dc2626":"inherit"}}>
+                            {pData["Risk Level"]||"—"}</strong></span>
+                          <span>👤 {pData["Informant Name"]||"—"}</span>
+                          {pData["Suicide Risk Flag"]==="FLAGGED"&&
+                            <span style={{color:"#dc2626",fontWeight:700}}>🚨 Suicide Flag</span>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── SECTION 1: DIAGNOSIS ── */}
+                <ReportSection title="1. Diagnostic Formulation" color="#7c3aed" icon="🔬">
+                  {diagnoses.filter(d=>d.name).length===0 ? (
+                    <p style={{color:"#94a3b8",fontStyle:"italic",fontSize:12}}>No diagnoses entered.</p>
+                  ) : (
+                    <div>
+                      {diagnoses.filter(d=>d.name).map((d,i)=>(
+                        <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start",
+                          marginBottom:8,padding:"8px 12px",borderRadius:8,
+                          background:i===0?"#faf5ff":"#f8fafc",
+                          border:`1px solid ${i===0?"#d8b4fe":"#e2e8f0"}`}}>
+                          <div style={{width:24,height:24,borderRadius:"50%",flexShrink:0,
+                            background:i===0?"#7c3aed":"#94a3b8",color:"white",
+                            display:"flex",alignItems:"center",justifyContent:"center",
+                            fontSize:11,fontWeight:800}}>
+                            {i+1}
+                          </div>
+                          <div>
+                            <div style={{fontSize:13,fontWeight:700,color:i===0?"#6d28d9":"#374151"}}>
+                              {d.name}
+                            </div>
+                            {d.specifier&&<div style={{fontSize:11,color:"#64748b"}}>{d.specifier}</div>}
+                            <div style={{fontSize:10,color:"#94a3b8"}}>
+                              {i===0?"Primary Diagnosis":`Comorbidity Level ${i+1}`} · {d.category}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </ReportSection>
+
+                {/* ── SECTION 2: PRESENTING COMPLAINTS ── */}
+                {complaints.length>0 && (
+                  <ReportSection title="2. Presenting Complaints" color="#d97706" icon="🗣">
+                    <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+                      {complaints.map(c=>(
+                        <span key={c} style={{background:"#fffbeb",border:"1px solid #fde68a",
+                          borderRadius:99,padding:"3px 10px",fontSize:11,color:"#92400e"}}>
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                  </ReportSection>
+                )}
+
+                {/* ── SECTION 3: SYMPTOMS ── */}
+                {([...symptoms.history,...symptoms.examination,...symptoms.observation].length>0) && (
+                  <ReportSection title="3. Clinical Findings" color="#0891b2" icon="📝">
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10}}>
+                      {[
+                        {label:"On History",items:symptoms.history,color:"#0891b2",bg:"#ecfeff"},
+                        {label:"On Examination",items:symptoms.examination,color:"#7c3aed",bg:"#faf5ff"},
+                        {label:"On Observation",items:symptoms.observation,color:"#d97706",bg:"#fffbeb"},
+                      ].filter(s=>s.items.length>0).map(s=>(
+                        <div key={s.label} style={{background:s.bg,borderRadius:8,padding:"10px 12px",
+                          border:`1px solid ${s.color}30`}}>
+                          <div style={{fontSize:10,fontWeight:700,color:s.color,
+                            textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:6}}>
+                            {s.label}
+                          </div>
+                          {s.items.map(item=>(
+                            <div key={item} style={{fontSize:11,color:"#374151",
+                              marginBottom:3,paddingLeft:8,borderLeft:`2px solid ${s.color}50`}}>
+                              {item}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </ReportSection>
+                )}
+
+                {/* ── SECTION 4: SYMPTOM GRADING ── */}
+                {Object.keys(symptomGrades).length>0 && (
+                  <ReportSection title="4. Symptom Severity Grading" color="#dc2626" icon="📊">
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                        <thead>
+                          <tr style={{background:"#f8fafc"}}>
+                            {["Symptom","CGI-S","Severity","Frequency","Disability"].map(h=>(
+                              <th key={h} style={{padding:"8px 10px",textAlign:"left",fontSize:10,
+                                fontWeight:700,color:"#64748b",textTransform:"uppercase",
+                                letterSpacing:"0.08em",borderBottom:"2px solid #e2e8f0"}}>
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(symptomGrades).map(([sym,g],i)=>(
+                            <tr key={sym} style={{background:i%2===0?"white":"#f8fafc"}}>
+                              <td style={{padding:"7px 10px",fontSize:11,color:"#374151",borderBottom:"1px solid #f1f5f9"}}>{sym}</td>
+                              <td style={{padding:"7px 10px",textAlign:"center",borderBottom:"1px solid #f1f5f9"}}>
+                                <span style={{fontWeight:800,color:["","#10b981","#84cc16","#f59e0b","#f97316","#ef4444","#dc2626","#991b1b"][g.intensity||0]}}>
+                                  {g.intensity||0}
+                                </span>
+                              </td>
+                              <td style={{padding:"7px 10px",fontSize:10,color:"#64748b",borderBottom:"1px solid #f1f5f9"}}>
+                                {CGI_S_LABELS[g.intensity||0]||"Absent"}
+                              </td>
+                              <td style={{padding:"7px 10px",fontSize:10,color:"#64748b",borderBottom:"1px solid #f1f5f9"}}>{g.frequency||"—"}</td>
+                              <td style={{padding:"7px 10px",fontSize:10,color:"#64748b",borderBottom:"1px solid #f1f5f9"}}>{g.disability||"—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </ReportSection>
+                )}
+
+                {/* ── SECTION 5: SCALES ── */}
+                {usedScales.length>0 && (
+                  <ReportSection title="5. Psychometric Assessment" color="#0d5c6e" icon="🧪">
+                    {usedScales.map(sid=>{
+                      const scale = SCALES.find(s=>s.id===sid);
+                      if(!scale) return null;
+                      const scores = scaleScores[sid]||{};
+                      const fsiq = scores["Full Scale IQ"]||scores["Adaptive Behavior Composite"]||scores["Total Score"]||"";
+                      const classification = fsiq ? scale.classify(Number(fsiq)) : "";
+                      return (
+                        <div key={sid} style={{marginBottom:12,background:"#f8fafc",borderRadius:8,
+                          padding:"10px 14px",border:"1px solid #e2e8f0"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                            marginBottom:8}}>
+                            <div style={{fontSize:12,fontWeight:700,color:"#0d3b47"}}>{scale.name}</div>
+                            {classification&&(
+                              <span style={{background:"#eff6ff",color:"#1d4ed8",borderRadius:99,
+                                padding:"2px 10px",fontSize:10,fontWeight:700}}>
+                                {classification}
+                              </span>
+                            )}
+                          </div>
+                          <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+                            {Object.entries(scores).filter(([,v])=>v).map(([k,v])=>(
+                              <div key={k} style={{background:"white",borderRadius:6,padding:"5px 10px",
+                                border:"1px solid #e2e8f0"}}>
+                                <div style={{fontSize:9,color:"#94a3b8",textTransform:"uppercase"}}>{k}</div>
+                                <div style={{fontSize:14,fontWeight:800,color:"#0d3b47"}}>{v}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </ReportSection>
+                )}
+
+                {/* ── SECTION 6: FAMILY ── */}
+                {familyMembers.length>0 && (
+                  <ReportSection title="6. Family History & Structure" color="#7c3aed" icon="👨‍👩‍👧">
+                    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:8}}>
+                      {familyMembers.map(m=>(
+                        <div key={m.id} style={{background:"#f8fafc",borderRadius:8,padding:"8px 10px",
+                          border:`1px solid ${m.psychiatric&&m.psychiatric!=="None"?"#fecaca":"#e2e8f0"}`}}>
+                          <div style={{fontSize:11,fontWeight:700,color:"#374151"}}>{m.relation}</div>
+                          {m.name&&<div style={{fontSize:10,color:"#64748b"}}>{m.name}</div>}
+                          <div style={{fontSize:10,color:"#94a3b8"}}>
+                            {m.gender==="M"?"Male":m.gender==="F"?"Female":"—"} · {m.age||"?"}yr
+                          </div>
+                          {m.psychiatric&&m.psychiatric!=="None"&&(
+                            <div style={{fontSize:10,color:"#dc2626",fontWeight:600}}>
+                              Hx: {m.psychiatric}
+                            </div>
+                          )}
+                          {m.deceased&&<div style={{fontSize:10,color:"#94a3b8"}}>Deceased</div>}
+                        </div>
+                      ))}
+                    </div>
+                  </ReportSection>
+                )}
+
+                {/* ── SECTION 7: MEDICAL ── */}
+                {Object.values(medFindings).some(v=>v) && (
+                  <ReportSection title="7. Medical Findings & Investigations" color="#dc2626" icon="🩺">
+                    {[
+                      {k:"neurological",l:"Neurological Examination"},
+                      {k:"physical",l:"Physical Examination"},
+                      {k:"eeg",l:"EEG"},
+                      {k:"mri",l:"MRI / CT Brain"},
+                      {k:"labs",l:"Laboratory Investigations"},
+                      {k:"other",l:"Other Findings"},
+                    ].filter(({k})=>medFindings[k]).map(({k,l})=>(
+                      <div key={k} style={{marginBottom:10}}>
+                        <div style={{fontSize:11,fontWeight:700,color:"#dc2626",marginBottom:3}}>{l}</div>
+                        <div style={{fontSize:12,color:"#374151",lineHeight:1.8,
+                          padding:"8px 12px",background:"#fef2f2",borderRadius:6,
+                          border:"1px solid #fecaca"}}>{medFindings[k]}</div>
+                      </div>
+                    ))}
+                  </ReportSection>
+                )}
+
+                {/* ── SECTION 8: MEDICATIONS ── */}
+                {medications.length>0 && (
+                  <ReportSection title="8. Medications Prescribed" color="#7c3aed" icon="💊">
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                        <thead>
+                          <tr style={{background:"#faf5ff"}}>
+                            {["#","Drug","Dose","Frequency","Duration","Notes"].map(h=>(
+                              <th key={h} style={{padding:"7px 10px",textAlign:"left",fontSize:10,
+                                fontWeight:700,color:"#6d28d9",textTransform:"uppercase",
+                                letterSpacing:"0.08em",borderBottom:"2px solid #ddd6fe"}}>
+                                {h}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {medications.map((m,i)=>(
+                            <tr key={m.id} style={{background:i%2===0?"white":"#faf5ff"}}>
+                              <td style={{padding:"7px 10px",color:"#94a3b8",borderBottom:"1px solid #f1f5f9"}}>{i+1}</td>
+                              <td style={{padding:"7px 10px",fontWeight:700,color:"#374151",borderBottom:"1px solid #f1f5f9"}}>{m.drug||"—"}</td>
+                              <td style={{padding:"7px 10px",color:"#374151",borderBottom:"1px solid #f1f5f9"}}>{m.dose||"—"}</td>
+                              <td style={{padding:"7px 10px",color:"#374151",borderBottom:"1px solid #f1f5f9"}}>{m.frequency||"—"}</td>
+                              <td style={{padding:"7px 10px",color:"#374151",borderBottom:"1px solid #f1f5f9"}}>{m.duration||"—"}</td>
+                              <td style={{padding:"7px 10px",color:"#64748b",borderBottom:"1px solid #f1f5f9"}}>{m.notes||"—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </ReportSection>
+                )}
+
+                {/* ── SECTION 9: CGI + CLINICAL IMPRESSION ── */}
+                <ReportSection title="9. Clinical Global Impression & Formulation" color="#0d5c6e" icon="📊">
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:14}}>
+                    {[
+                      {label:"CGI-S — Severity", val:cgiS, labels:CGI_S_LABELS, color:"#0d5c6e"},
+                      {label:"CGI-I — Improvement", val:cgiI, labels:CGI_I_LABELS, color:"#10b981"},
+                    ].map(({label,val,labels,color})=>(
+                      <div key={label} style={{background:"#f8fafc",borderRadius:8,padding:"10px 12px",
+                        border:"1px solid #e2e8f0",textAlign:"center"}}>
+                        <div style={{fontSize:10,fontWeight:700,color:"#64748b",marginBottom:6}}>{label}</div>
+                        <div style={{fontSize:36,fontWeight:900,color:val>0?color:"#e2e8f0"}}>{val||"—"}</div>
+                        <div style={{fontSize:11,color,fontWeight:600}}>{val>0?labels[val]||"":"Not rated"}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {clinicianNote && (
+                    <div style={{background:"#f0fdf4",borderRadius:8,padding:"12px 14px",
+                      border:"1px solid #86efac"}}>
+                      <div style={{fontSize:10,fontWeight:700,color:"#15803d",marginBottom:6,
+                        textTransform:"uppercase",letterSpacing:"0.08em"}}>
+                        Clinical Impression & Formulation
+                      </div>
+                      <div style={{fontSize:13,color:"#166534",lineHeight:1.8,fontFamily:"Georgia,serif",
+                        fontStyle:"italic"}}>{clinicianNote}</div>
+                    </div>
+                  )}
+                </ReportSection>
+
+                {/* ── SECTION 10: MANAGEMENT PLAN ── */}
+                <ReportSection title="10. Management Plan" color="#1e3a5f" icon="📋">
+                  {[
+                    {k:"pharmacological",l:"Pharmacological Management",icon:"💊",color:"#7c3aed",bg:"#faf5ff"},
+                    {k:"nonPharmacological",l:"Non-Pharmacological Interventions",icon:"🧠",color:"#0d9488",bg:"#f0fdf4"},
+                    {k:"referrals",l:"Referrals",icon:"📋",color:"#d97706",bg:"#fffbeb"},
+                    {k:"investigations",l:"Investigations Advised",icon:"🔬",color:"#0891b2",bg:"#ecfeff"},
+                    {k:"prognosis",l:"Prognosis",icon:"📈",color:"#10b981",bg:"#f0fdf4"},
+                  ].filter(({k})=>plan[k]).map(({k,l,icon,color,bg})=>(
+                    <div key={k} style={{background:bg,borderRadius:8,padding:"10px 14px",
+                      marginBottom:10,border:`1px solid ${color}30`}}>
+                      <div style={{fontSize:11,fontWeight:700,color,marginBottom:6}}>
+                        {icon} {l}
+                      </div>
+                      <div style={{fontSize:12,color:"#374151",lineHeight:1.8,whiteSpace:"pre-line"}}>
+                        {plan[k]}
+                      </div>
+                    </div>
+                  ))}
+                  {plan.followUpDate && (
+                    <div style={{background:"#1e3a5f",borderRadius:8,padding:"10px 14px",
+                      display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <span style={{fontSize:12,fontWeight:700,color:"white"}}>📅 Next Follow-Up</span>
+                      <span style={{fontSize:14,fontWeight:800,color:"#9FE1CB"}}>{plan.followUpDate}</span>
+                    </div>
+                  )}
+                </ReportSection>
+
+                {/* Signature block */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:32,
+                  marginTop:24,paddingTop:20,borderTop:"2px solid #e2e8f0"}}>
+                  {["Examining Clinician","Countersigning Clinician / Supervisor"].map(l=>(
+                    <div key={l}>
+                      <div style={{borderBottom:"1px dotted #94a3b8",height:40,marginBottom:8}}/>
+                      <div style={{fontSize:10,color:"#94a3b8"}}>{l}</div>
+                      <div style={{fontSize:9,color:"#cbd5e1",marginTop:2}}>
+                        Name · Designation · Registration No. · Date
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Footer */}
+                <div style={{marginTop:16,display:"flex",justifyContent:"space-between",
+                  fontSize:9,color:"#94a3b8",borderTop:"1px solid #f1f5f9",paddingTop:10}}>
+                  <span>eSMART-V Clinical Report · CIBS Nagpur · {today}</span>
+                  <span>CONFIDENTIAL — For clinical use only · File: {ci.fileNo||"—"}</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
