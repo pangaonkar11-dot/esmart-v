@@ -7,6 +7,16 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 // ╚══════════════════════════════════════════════════════════════════════════╝
 
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxYw3DNfteGUApE97zpPScPgVCrHjNXTU-kuwabwQNviLmsaW4gSEd6hqY1FoTJsxu4HQ/exec";
+
+// ── Stable Auto-ID — permanent for this child forever ─────────────────────
+function generateAutoID(surname, dob, mobile1, mobile2) {
+  const sur  = (surname||"").toUpperCase().replace(/[^A-Z]/g,"").slice(0,3)||"XXX";
+  const dobC = (dob||"").replace(/[^0-9]/g,"");
+  const ddmm = dobC.length>=4 ? dobC.slice(0,4) : "0000";
+  const mob  = ((mobile1||mobile2||"").replace(/[^0-9]/g,"").slice(-4))||"0000";
+  const yr   = String(new Date().getFullYear()).slice(-2);
+  return `CIBS-${yr}-${sur}-${ddmm}-${mob}`;
+}
 const TOKEN = "CIBS2026";
 const getParam = k => { try { return new URLSearchParams(window.location.search).get(k)||""; } catch { return ""; } };
 const autoFileNo = () => { const yy=String(new Date().getFullYear()).slice(-2); return `CIBS-${yy}-${String(Math.floor(Math.random()*9000)+1000)}`; };
@@ -617,6 +627,312 @@ function PedigreeChart({ members, onAdd, onUpdate, onRemove, childName }) {
 //  MAIN APP
 // ══════════════════════════════════════════════════════════════════════════════
 
+// ── PIN Screen ────────────────────────────────────────────────────────────
+function PINScreen({ onUnlock }) {
+  const [pin, setPin] = useState("");
+  const [error, setError] = useState("");
+  const STORED_PIN = localStorage.getItem("cibs_pin") || "1234";
+
+  const handleKey = (k) => {
+    if (k === "C") { setPin(""); setError(""); return; }
+    const next = pin + k;
+    if (next.length <= 4) {
+      setPin(next);
+      if (next.length === 4) {
+        if (next === STORED_PIN) { onUnlock(); }
+        else { setError("Incorrect PIN"); setTimeout(()=>{setPin("");setError("");},1200); }
+      }
+    }
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"linear-gradient(160deg,#0d1f2d,#0d3b47)",
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:"white",borderRadius:24,padding:40,maxWidth:360,width:"100%",
+        textAlign:"center",boxShadow:"0 32px 80px rgba(0,0,0,0.4)"}}>
+        <div style={{width:80,height:80,borderRadius:20,margin:"0 auto 20px",
+          background:"linear-gradient(135deg,#0d3b47,#0d9488)",
+          display:"flex",alignItems:"center",justifyContent:"center",fontSize:36}}>
+          🏥
+        </div>
+        <h1 style={{fontSize:18,fontWeight:800,color:"#0d3b47",margin:"0 0 4px"}}>
+          eSMART Clinical Workstation
+        </h1>
+        <p style={{fontSize:12,color:"#64748b",margin:"0 0 28px"}}>
+          CIBS Nagpur · Dr. Shailesh V. Pangaonkar
+        </p>
+        {/* PIN dots */}
+        <div style={{display:"flex",justifyContent:"center",gap:16,marginBottom:24}}>
+          {[0,1,2,3].map(i=>(
+            <div key={i} style={{width:16,height:16,borderRadius:"50%",
+              background:pin.length>i?"#0d5c6e":"#e2e8f0",
+              transition:"background 0.2s"}}/>
+          ))}
+        </div>
+        {error&&<p style={{color:"#dc2626",fontSize:12,marginBottom:12,fontWeight:600}}>{error}</p>}
+        {/* Keypad */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,maxWidth:240,margin:"0 auto"}}>
+          {[1,2,3,4,5,6,7,8,9,"C",0,"⌫"].map(k=>(
+            <button key={k} onClick={()=>k==="⌫"?setPin(p=>p.slice(0,-1)):handleKey(String(k))}
+              style={{padding:"16px",borderRadius:12,border:"1.5px solid #e2e8f0",
+                background:k==="C"?"#fef2f2":k==="⌫"?"#f8fafc":"white",
+                color:k==="C"?"#dc2626":"#0d3b47",fontSize:18,fontWeight:700,
+                cursor:"pointer",transition:"all 0.15s"}}>
+              {k}
+            </button>
+          ))}
+        </div>
+        <p style={{margin:"20px 0 0",fontSize:10,color:"#94a3b8"}}>
+          Default PIN: 1234 · Change in Settings
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ── Dashboard ──────────────────────────────────────────────────────────────
+function Dashboard({ onSelectSubject, onNewSubject, onLogout }) {
+  const [subjects, setSubjects] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [search, setSearch]     = useState("");
+  const [filter, setFilter]     = useState("all");
+
+  useEffect(() => { loadSubjects(); }, []);
+
+  const loadSubjects = async () => {
+    setLoading(true);
+    try {
+      const url = `${APPS_SCRIPT_URL}?action=getAllSubjects&token=CIBS2026`;
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json.status==="ok") setSubjects(json.subjects||[]);
+    } catch(e) { console.log("Could not load subjects:", e); }
+    setLoading(false);
+  };
+
+  const getStatus = (subj, tool) => {
+    const statusKey = `${tool}-Status`;
+    const status = subj[statusKey];
+    if (status === "Complete") return "complete";
+    if (status && status !== "") return "incomplete";
+    return "awaited";
+  };
+
+  const StatusBadge = ({status, label, onClick}) => {
+    const cfg = {
+      complete:   {bg:"#f0fdf4",color:"#15803d",border:"#86efac",icon:"✅",text:"Complete"},
+      incomplete: {bg:"#fffbeb",color:"#d97706",border:"#fde68a",icon:"⚠️",text:"Incomplete"},
+      awaited:    {bg:"#f8fafc",color:"#94a3b8",border:"#e2e8f0",icon:"⏳",text:"Awaited"},
+    };
+    const c = cfg[status]||cfg.awaited;
+    return (
+      <button onClick={onClick} style={{padding:"4px 8px",borderRadius:6,border:`1.5px solid ${c.border}`,
+        background:c.bg,color:c.color,fontSize:10,fontWeight:700,cursor:"pointer",
+        display:"flex",alignItems:"center",gap:4,whiteSpace:"nowrap"}}>
+        {c.icon} {c.text}
+      </button>
+    );
+  };
+
+  const filtered = subjects.filter(s => {
+    const name = `${s["Child First Name"]||""} ${s["Child Surname"]||""}`.toLowerCase();
+    const id   = (s["Auto-ID"]||"").toLowerCase();
+    const matchSearch = !search || name.includes(search.toLowerCase()) || id.includes(search.toLowerCase());
+    const cs = getStatus(s,"C"), ps = getStatus(s,"P"), vs = getStatus(s,"V");
+    const matchFilter =
+      filter==="all" ? true :
+      filter==="complete" ? (cs==="complete"&&ps==="complete"&&vs==="complete") :
+      filter==="awaited" ? (cs==="awaited"||ps==="awaited"||vs==="awaited") :
+      filter==="ready" ? (cs==="complete"&&ps==="complete"&&vs==="awaited") : true;
+    return matchSearch && matchFilter;
+  });
+
+  const copyLink = (autoID, tool) => {
+    const urls = {
+      C: `https://esmart-c.vercel.app`,
+      P: `https://esmart-p.vercel.app`,
+    };
+    const msg = tool==="C"
+      ? `Dear Parent,\nPlease complete the child cognitive assessment for ${autoID}:\n${urls.C}\n\nCIBS Nagpur · Dr. Pangaonkar`
+      : `Dear Parent,\nPlease complete the parent questionnaire for ${autoID}:\n${urls.P}\n\nCIBS Nagpur · Dr. Pangaonkar`;
+    navigator.clipboard?.writeText(msg.replace(/\n/g,"\n"));
+    alert(`Link copied! Send this to parent:\n${urls[tool]}`);
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"#e8ecf0",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+      {/* Header */}
+      <div style={{background:"linear-gradient(135deg,#0d1f2d,#0d3b47)",padding:"16px 20px"}}>
+        <div style={{maxWidth:1100,margin:"0 auto",display:"flex",
+          justifyContent:"space-between",alignItems:"center",flexWrap:"wrap",gap:12}}>
+          <div>
+            <div style={{fontSize:9,letterSpacing:"0.2em",textTransform:"uppercase",color:"#9FE1CB"}}>
+              eSMART Clinical Workstation · CIBS Nagpur
+            </div>
+            <div style={{fontSize:18,fontWeight:800,color:"white"}}>
+              All Subjects
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button onClick={onNewSubject}
+              style={{padding:"9px 18px",borderRadius:9,border:"none",background:"#0d9488",
+                color:"white",fontSize:13,fontWeight:700,cursor:"pointer"}}>
+              + Register New Subject
+            </button>
+            <button onClick={loadSubjects}
+              style={{padding:"9px 14px",borderRadius:9,border:"1.5px solid rgba(255,255,255,0.2)",
+                background:"transparent",color:"white",fontSize:12,cursor:"pointer"}}>
+              🔄 Refresh
+            </button>
+            <button onClick={onLogout}
+              style={{padding:"9px 14px",borderRadius:9,border:"1.5px solid rgba(255,255,255,0.2)",
+                background:"transparent",color:"rgba(255,255,255,0.7)",fontSize:12,cursor:"pointer"}}>
+              🔒 Lock
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"16px"}}>
+        {/* Search + Filter */}
+        <div style={{background:"white",borderRadius:12,padding:"12px 16px",marginBottom:14,
+          display:"flex",gap:10,alignItems:"center",flexWrap:"wrap",
+          boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
+          <input value={search} onChange={e=>setSearch(e.target.value)}
+            placeholder="Search by name or ID..."
+            style={{flex:1,minWidth:200,padding:"9px 14px",borderRadius:8,
+              border:"1.5px solid #e2e8f0",fontSize:13,outline:"none"}}/>
+          <div style={{display:"flex",gap:6}}>
+            {[["all","All"],["complete","Complete"],["ready","C+P Done, V Pending"],["awaited","Has Awaited"]].map(([v,l])=>(
+              <button key={v} onClick={()=>setFilter(v)}
+                style={{padding:"7px 12px",borderRadius:8,border:"none",fontSize:11,fontWeight:700,
+                  cursor:"pointer",
+                  background:filter===v?"#0d5c6e":"#f1f5f9",
+                  color:filter===v?"white":"#64748b"}}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Summary stats */}
+        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14}}>
+          {[
+            ["Total Subjects",subjects.length,"#0d5c6e","📋"],
+            ["C+P+V Complete",subjects.filter(s=>getStatus(s,"C")==="complete"&&getStatus(s,"P")==="complete"&&getStatus(s,"V")==="complete").length,"#10b981","✅"],
+            ["Awaiting C or P",subjects.filter(s=>getStatus(s,"C")==="awaited"||getStatus(s,"P")==="awaited").length,"#d97706","⏳"],
+            ["Weekly Active",subjects.filter(s=>s["W-Total Weeks"]&&Number(s["W-Total Weeks"])>0).length,"#7c3aed","📱"],
+          ].map(([label,count,color,icon])=>(
+            <div key={label} style={{background:"white",borderRadius:10,padding:"12px 14px",
+              boxShadow:"0 2px 8px rgba(0,0,0,0.06)",border:`2px solid ${color}20`}}>
+              <div style={{fontSize:24,marginBottom:4}}>{icon}</div>
+              <div style={{fontSize:22,fontWeight:800,color}}>{count}</div>
+              <div style={{fontSize:11,color:"#64748b"}}>{label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Subject table */}
+        <div style={{background:"white",borderRadius:12,overflow:"hidden",
+          boxShadow:"0 2px 12px rgba(0,0,0,0.08)"}}>
+          {loading ? (
+            <div style={{padding:40,textAlign:"center",color:"#64748b"}}>
+              <div style={{fontSize:32,marginBottom:8}}>⏳</div>
+              <p>Loading subjects from CIBS Databank...</p>
+            </div>
+          ) : filtered.length===0 ? (
+            <div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>
+              <div style={{fontSize:32,marginBottom:8}}>📋</div>
+              <p>{subjects.length===0?"No subjects registered yet. Click '+ Register New Subject' to begin.":"No subjects match your search."}</p>
+            </div>
+          ) : (
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <thead>
+                  <tr style={{background:"#0d3b47",color:"white"}}>
+                    {["Auto-ID","Child Name","DOB","Age","School","eSMART-C","eSMART-P","eSMART-V","Weekly","Actions"].map(h=>(
+                      <th key={h} style={{padding:"10px 12px",textAlign:"left",fontWeight:700,
+                        fontSize:10,textTransform:"uppercase",letterSpacing:"0.08em",
+                        whiteSpace:"nowrap"}}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((s,i)=>{
+                    const cs=getStatus(s,"C"), ps=getStatus(s,"P"), vs=getStatus(s,"V");
+                    const name=`${s["Child First Name"]||""} ${s["Child Surname"]||""}`.trim()||"—";
+                    const weeks=s["W-Total Weeks"]||0;
+                    return (
+                      <tr key={i} style={{background:i%2===0?"white":"#f8fafc",
+                        borderBottom:"1px solid #f1f5f9",
+                        transition:"background 0.15s"}}
+                        onMouseOver={e=>e.currentTarget.style.background="#f0f9ff"}
+                        onMouseOut={e=>e.currentTarget.style.background=i%2===0?"white":"#f8fafc"}>
+                        <td style={{padding:"10px 12px",fontFamily:"monospace",
+                          fontWeight:700,color:"#0d5c6e",fontSize:11}}>
+                          {s["Auto-ID"]||"—"}
+                        </td>
+                        <td style={{padding:"10px 12px",fontWeight:600,color:"#1e293b"}}>
+                          {name}
+                        </td>
+                        <td style={{padding:"10px 12px",color:"#64748b"}}>
+                          {s["Date of Birth"]||"—"}
+                        </td>
+                        <td style={{padding:"10px 12px",color:"#64748b"}}>
+                          {s["Age"]||"—"}
+                        </td>
+                        <td style={{padding:"10px 12px",color:"#64748b",maxWidth:120,
+                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                          {s["School"]||"—"}
+                        </td>
+                        <td style={{padding:"8px 12px"}}>
+                          <StatusBadge status={cs}
+                            onClick={()=>cs==="awaited"?copyLink(s["Auto-ID"],"C"):onSelectSubject(s,"C")}/>
+                        </td>
+                        <td style={{padding:"8px 12px"}}>
+                          <StatusBadge status={ps}
+                            onClick={()=>ps==="awaited"?copyLink(s["Auto-ID"],"P"):onSelectSubject(s,"P")}/>
+                        </td>
+                        <td style={{padding:"8px 12px"}}>
+                          <StatusBadge status={vs}
+                            onClick={()=>onSelectSubject(s,"V")}/>
+                        </td>
+                        <td style={{padding:"8px 12px"}}>
+                          {weeks>0 ? (
+                            <span style={{background:"#f0fdf4",color:"#15803d",
+                              borderRadius:6,padding:"3px 8px",fontSize:10,fontWeight:700}}>
+                              📱 {weeks}wk
+                            </span>
+                          ) : (
+                            <span style={{color:"#94a3b8",fontSize:10}}>—</span>
+                          )}
+                        </td>
+                        <td style={{padding:"8px 12px"}}>
+                          <button onClick={()=>onSelectSubject(s,"V")}
+                            style={{padding:"5px 10px",borderRadius:6,border:"none",
+                              background:"linear-gradient(135deg,#0d5c6e,#0d9488)",
+                              color:"white",fontSize:10,fontWeight:700,cursor:"pointer"}}>
+                            Open V →
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+        <p style={{textAlign:"center",fontSize:10,color:"#94a3b8",marginTop:12}}>
+          CIBS Nagpur · Dr. Shailesh V. Pangaonkar · +91 712 254 8966 · pangaonkar@cibsindia.com
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ── Report Section Wrapper ─────────────────────────────────────────────────
 const ReportSection = ({title, color="#0d3b47", icon, children}) => (
   <div style={{marginBottom:20}}>
@@ -631,8 +947,10 @@ const ReportSection = ({title, color="#0d3b47", icon, children}) => (
 );
 
 export default function App() {
+  const [appScreen, setAppScreen] = useState("pin"); // pin|dashboard|workstation
+  const [selectedSubject, setSelectedSubject] = useState(null);
   const [tab, setTab] = useState(0);
-  const [sessionMode, setSessionMode] = useState(null); // null|"new"|"continue"|"retest"
+  const [sessionMode, setSessionMode] = useState(null);
   const [prevSession, setPrevSession] = useState(null);
   const [cData, setCData] = useState(null);
   const [pData, setPData] = useState(null);
@@ -645,10 +963,18 @@ export default function App() {
 
   // Field 1 — Identity
   const [ci, setCi] = useState({
-    fileNo: getParam("reg")||"", name:"", dob:"", age:"", gender:"",
-    school:"", grade:"", examiner: getParam("assessor")||"",
+    fileNo: getParam("reg")||"",
+    cFileNo: getParam("reg")||"",
+    cibsReg: "",
+    firstName: "", surname: "",
+    name:"", dob:"", age:"", gender:"",
+    fatherName:"", motherName:"",
+    mobile1:"", mobile2:"", email1:"", email2:"",
+    school:"", grade:"", city:"", autoID:"",
+    examiner: getParam("assessor")||"Dr. Shailesh V. Pangaonkar",
+    setting: "CIBS Nagpur OPD",
     date: new Date().toISOString().slice(0,10),
-    education:"", occupation:"", referral:"", setting:"",
+    education:"", occupation:"", referral:"", mobile:"",
   });
   const upd = (k,v) => setCi(p=>({...p,[k]:v}));
 
@@ -806,7 +1132,14 @@ export default function App() {
   // ── Submit to databank ─────────────────────────────────────────────────
   const submitToDatabank = async () => {
     setSaving(true);
-    const fileNo = (ci.fileNo||autoFileNo()).trim();
+    const fileNo = (ci.cFileNo||ci.fileNo||autoFileNo()).trim();
+    const autoID = generateAutoID(
+      ci.surname || ci.name?.split(" ").slice(-1)[0] || "",
+      ci.dob,
+      ci.mobile1 || ci.mobile || "",
+      ci.mobile2 || ""
+    );
+    const childFullName = `${ci.firstName||""} ${ci.surname||ci.name||""}`.trim();
     const dxList = diagnoses.filter(d=>d.name).map(d=>d.name).join("; ");
     const allSymptoms = [...symptoms.history,...symptoms.examination,...symptoms.observation].join("; ");
     const medList = medications.map(m=>`${m.drug} ${m.dose} ${m.frequency}`).join("; ");
@@ -817,12 +1150,26 @@ export default function App() {
       await fetch(APPS_SCRIPT_URL, {
         method:"POST", mode:"no-cors", headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-          tool:"eSMART-V", timestamp:new Date().toISOString(), mode:"clinician",
-          fileNo, uid:"", name:ci.examiner||"", dob:"", age:"", gender:"",
-          mobile:"", education:"", occupation:"", referral:ci.referral||"",
+          tool:"eSMART-V", autoID,
+          timestamp:new Date().toISOString(), mode:"clinician",
+          cibs_reg: ci.cibsReg||fileNo||"",
+          c_file_no: ci.cFileNo||fileNo||"",
+          child_firstname: ci.firstName||"",
+          child_surname: ci.surname||"",
+          father_name: ci.fatherName||"",
+          mother_name: ci.motherName||"",
+          mobile1: ci.mobile1||"",
+          mobile2: ci.mobile2||"",
+          email1: ci.email1||"",
+          email2: ci.email2||"",
+          city: ci.city||"",
+          uid:"", name:ci.examiner||"", dob:"", age:"", gender:"",
+          mobile:ci.mobile1||"", education:ci.education||"",
+          occupation:"", referral:ci.referral||"",
           assessor:ci.examiner||"", notes:clinicianNote||"",
           // Child info
-          child_name:ci.name||"", child_dob:ci.dob||"", child_age:ci.age||"",
+          child_name:childFullName||ci.name||"",
+          child_dob:ci.dob||"", child_age:ci.age||"",
           child_gender:ci.gender||"", school:ci.school||"", grade:ci.grade||"",
           // Clinician
           clinician_name:ci.examiner||"", assessment_date:ci.date||"",
@@ -908,7 +1255,62 @@ export default function App() {
 
   const card = {background:"white",borderRadius:14,padding:"20px",marginBottom:16,boxShadow:"0 2px 12px rgba(0,0,0,0.06)",border:"1px solid #f1f5f9"};
 
+  // ── Handle subject selection from Dashboard ──────────────────────────
+  const handleSelectSubject = (subject, tool) => {
+    if (tool === "V") {
+      // Pre-fill ci from subject data
+      setCi(p => ({
+        ...p,
+        fileNo:     subject["Auto-ID"]||"",
+        cFileNo:    subject["C-File No"]||"",
+        cibsReg:    subject["CIBS Reg No"]||"",
+        firstName:  subject["Child First Name"]||"",
+        surname:    subject["Child Surname"]||"",
+        name:       `${subject["Child First Name"]||""} ${subject["Child Surname"]||""}`.trim(),
+        dob:        subject["Date of Birth"]||"",
+        age:        subject["Age"]||"",
+        gender:     subject["Gender"]||"",
+        school:     subject["School"]||"",
+        grade:      subject["Class"]||"",
+        fatherName: subject["Father Name"]||"",
+        motherName: subject["Mother Name"]||"",
+        mobile1:    subject["Mobile 1"]||"",
+        mobile2:    subject["Mobile 2"]||"",
+        email1:     subject["Email 1"]||"",
+        email2:     subject["Email 2"]||"",
+        city:       subject["City"]||"",
+      }));
+      setSelectedSubject(subject);
+      setTab(0);
+      setAppScreen("workstation");
+    }
+  };
+
   // ══════════════════════════════════════════════════════════════════════
+  if (appScreen === "pin") return (
+    <PINScreen onUnlock={()=>setAppScreen("dashboard")}/>
+  );
+
+  if (appScreen === "dashboard") return (
+    <Dashboard
+      onSelectSubject={handleSelectSubject}
+      onNewSubject={()=>{
+        setCi({
+          fileNo:"", cFileNo:"", cibsReg:"", firstName:"", surname:"",
+          name:"", dob:"", age:"", gender:"", school:"", grade:"",
+          fatherName:"", motherName:"", mobile1:"", mobile2:"",
+          email1:"", email2:"", city:"", autoID:"",
+          examiner:"Dr. Shailesh V. Pangaonkar",
+          setting:"CIBS Nagpur OPD",
+          date:new Date().toISOString().slice(0,10),
+          referral:"", mobile:"",
+        });
+        setTab(1);
+        setAppScreen("workstation");
+      }}
+      onLogout={()=>setAppScreen("pin")}/>
+  );
+
   return (
     <div style={{minHeight:"100vh",background:"#e8ecf0",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
       <style>{`@media print{.no-print{display:none!important}body{background:white!important}}
@@ -1096,26 +1498,60 @@ export default function App() {
         {tab===1 && (
           <div style={card}>
             <SectionTitle icon="👤" title="Child Identification" color="#0d5c6e"/>
+            {/* Auto-ID display */}
+            {(ci.surname||ci.mobile1) && (
+              <div style={{background:"linear-gradient(135deg,#0d3b47,#0d5c6e)",
+                borderRadius:10,padding:"12px 16px",marginBottom:14,
+                display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{fontSize:9,color:"rgba(255,255,255,0.6)",textTransform:"uppercase",letterSpacing:"0.1em"}}>
+                    Auto-ID (Permanent)
+                  </div>
+                  <div style={{fontSize:16,fontWeight:800,color:"white",fontFamily:"monospace",letterSpacing:"0.05em"}}>
+                    {generateAutoID(ci.surname, ci.dob, ci.mobile1, ci.mobile2)}
+                  </div>
+                </div>
+                <div style={{fontSize:10,color:"rgba(255,255,255,0.6)",textAlign:"right"}}>
+                  <div>Stable across all sessions</div>
+                  <div>Links C + P + V + Weekly</div>
+                </div>
+              </div>
+            )}
+
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
-              <Field label="File No. (CIBS Registration) ★" required>
-                <Input value={ci.fileNo} onChange={v=>upd("fileNo",v)} placeholder="CIBS-26-0042"/>
+              {/* Row 1 — CIBS IDs */}
+              <Field label="CIBS Registration No.">
+                <Input value={ci.cibsReg} onChange={v=>upd("cibsReg",v)} placeholder="e.g. CIBS-26-0042"/>
+              </Field>
+              <Field label="C-File Number">
+                <Input value={ci.cFileNo} onChange={v=>upd("cFileNo",v)} placeholder="e.g. C-0042"/>
                 {loadingCP&&<p style={{fontSize:10,color:"#0d9488",margin:"4px 0 0"}}>Fetching C+P data...</p>}
               </Field>
-              <Field label="Child's Full Name">
-                <Input value={ci.name} onChange={v=>upd("name",v)}/>
+              {/* Row 2 — Name */}
+              <Field label="Child First Name" required>
+                <Input value={ci.firstName} onChange={v=>upd("firstName",v)}/>
               </Field>
-              <Field label="Date of Birth">
-                <Input type="date" value={ci.dob} onChange={v=>{upd("dob",v); const ms=Date.now()-new Date(v).getTime(); upd("age",String(Math.floor(ms/(1000*60*60*24*365.25))));}} />
+              <Field label="Child Surname" required>
+                <Input value={ci.surname} onChange={v=>upd("surname",v)}/>
+              </Field>
+              {/* Row 3 — DOB + Age */}
+              <Field label="Date of Birth" required>
+                <Input type="date" value={ci.dob} onChange={v=>{upd("dob",v);
+                  const ms=Date.now()-new Date(v).getTime();
+                  upd("age",String(Math.floor(ms/(1000*60*60*24*365.25))));}}/>
               </Field>
               <Field label="Age (years)">
                 <Input value={ci.age} onChange={v=>upd("age",v)} type="number"/>
               </Field>
-              <Field label="Gender">
+              {/* Row 4 — Gender */}
+              <Field label="Gender" required>
                 <div style={{display:"flex",gap:8}}>
                   {[["M","Male"],["F","Female"],["O","Other"]].map(([v,l])=>(
                     <button key={v} onClick={()=>upd("gender",v)}
-                      style={{flex:1,padding:"9px",borderRadius:8,border:`2px solid ${ci.gender===v?"#0d5c6e":"#e2e8f0"}`,
-                        background:ci.gender===v?"#0d5c6e":"white",color:ci.gender===v?"white":"#64748b",
+                      style={{flex:1,padding:"9px",borderRadius:8,
+                        border:`2px solid ${ci.gender===v?"#0d5c6e":"#e2e8f0"}`,
+                        background:ci.gender===v?"#0d5c6e":"white",
+                        color:ci.gender===v?"white":"#64748b",
                         fontSize:12,fontWeight:600,cursor:"pointer"}}>
                       {l}
                     </button>
@@ -1123,27 +1559,59 @@ export default function App() {
                 </div>
               </Field>
               <Field label="Education Level">
-                <Select value={ci.education} onChange={v=>upd("education",v)}
-                  options={["Pre-school","Primary (Class 1-5)","Upper Primary (Class 6-8)","Secondary (Class 9-10)","Higher Secondary (Class 11-12)","Graduate","Post-Graduate","Not in school","Dropout"]}/>
+                <Select value={ci.education||""} onChange={v=>upd("education",v)}
+                  options={["Pre-school","Primary (Class 1-5)","Upper Primary (Class 6-8)",
+                    "Secondary (Class 9-10)","Higher Secondary (Class 11-12)",
+                    "Graduate","Post-Graduate","Not in school","Dropout"]}/>
               </Field>
-              <Field label="School / Institution">
+              {/* Row 5 — Parents */}
+              <Field label="Father's Full Name">
+                <Input value={ci.fatherName} onChange={v=>upd("fatherName",v)}/>
+              </Field>
+              <Field label="Mother's Full Name">
+                <Input value={ci.motherName} onChange={v=>upd("motherName",v)}/>
+              </Field>
+              {/* Row 6 — Mobile */}
+              <Field label="Mobile 1 (Father / Primary)" required>
+                <Input value={ci.mobile1} onChange={v=>upd("mobile1",v)} type="tel" placeholder="10-digit mobile"/>
+              </Field>
+              <Field label="Mobile 2 (Mother / Secondary)">
+                <Input value={ci.mobile2} onChange={v=>upd("mobile2",v)} type="tel" placeholder="Optional"/>
+              </Field>
+              {/* Row 7 — Email */}
+              <Field label="Email 1">
+                <Input value={ci.email1} onChange={v=>upd("email1",v)} type="email"/>
+              </Field>
+              <Field label="Email 2">
+                <Input value={ci.email2} onChange={v=>upd("email2",v)} type="email"/>
+              </Field>
+              {/* Row 8 — School + City */}
+              <Field label="School Name">
                 <Input value={ci.school} onChange={v=>upd("school",v)}/>
               </Field>
               <Field label="Class / Grade">
                 <Input value={ci.grade} onChange={v=>upd("grade",v)}/>
               </Field>
-              <Field label="Examiner / Clinician" required>
-                <Input value={ci.examiner} onChange={v=>upd("examiner",v)} placeholder="Dr. Pangaonkar"/>
+              <Field label="City of Residence">
+                <Input value={ci.city} onChange={v=>upd("city",v)} placeholder="Nagpur"/>
               </Field>
               <Field label="Assessment Date">
                 <Input type="date" value={ci.date} onChange={v=>upd("date",v)}/>
               </Field>
+              {/* Row 9 — Clinician (defaults to Dr. Pangaonkar) */}
+              <Field label="Clinician Name">
+                <Input value={ci.examiner} onChange={v=>upd("examiner",v)}
+                  placeholder="Dr. Shailesh V. Pangaonkar"/>
+              </Field>
               <Field label="Setting">
-                <Select value={ci.setting} onChange={v=>upd("setting",v)}
-                  options={["OPD — CIBS","IPD — CIBS","Home Visit","School Visit","Telemedicine","Private Clinic","Other"]}/>
+                <Select value={ci.setting||""} onChange={v=>upd("setting",v)}
+                  options={["OPD — CIBS Nagpur","IPD — CIBS Nagpur",
+                    "Home Visit","School Visit","Telemedicine",
+                    "Private Clinic — Nagpur","Other"]}/>
               </Field>
               <Field label="Purpose / Referral Source">
-                <Input value={ci.referral} onChange={v=>upd("referral",v)} placeholder="e.g. Self-referral, School referral"/>
+                <Input value={ci.referral} onChange={v=>upd("referral",v)}
+                  placeholder="e.g. Self-referral, School referral, Paediatrician"/>
               </Field>
             </div>
           </div>
