@@ -969,7 +969,6 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-function AppInner() {
 function App() {
   const [appScreen, setAppScreen] = useState("pin"); // pin|dashboard|workstation
   const [selectedSubject, setSelectedSubject] = useState(null);
@@ -2515,6 +2514,4 @@ function App() {
   );
 }
 
-export default function App() {
-  return <ErrorBoundary><AppInner/></ErrorBoundary>;
-}
+export default App;
