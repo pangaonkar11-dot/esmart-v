@@ -1217,23 +1217,6 @@ export default function App() {
     setSaving(false);
   };
 
-  // ── Auto-save — debounced 3 seconds after any change ──────────────────
-  const autoSaveTimer = useRef(null);
-  const autoSave = useCallback(() => {
-    if (!ci.fileNo || ci.fileNo.length < 8) return;
-    clearTimeout(autoSaveTimer.current);
-    autoSaveTimer.current = setTimeout(() => {
-      setSaving(true);
-      submitToDatabank().finally(()=>setSaving(false));
-    }, 3000);
-  }, [ci, diagnoses, complaints, symptoms, symptomGrades, scaleScores,
-      familyMembers, medFindings, medications, cgiS, cgiI, clinicianNote, plan]);
-
-  useEffect(() => { autoSave(); }, [
-    ci, diagnoses, complaints, symptoms, symptomGrades,
-    medications, cgiS, cgiI, clinicianNote, plan
-  ]);
-
   // ── Today ──────────────────────────────────────────────────────────────
   const today = new Date().toLocaleDateString("en-IN",{year:"numeric",month:"long",day:"numeric"});
 
@@ -1332,12 +1315,11 @@ export default function App() {
             </div>
             <div style={{display:"flex",gap:8}}>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
-                {saving && <span style={{fontSize:10,color:"rgba(255,255,255,0.7)"}}>⏳ Auto-saving...</span>}
                 {dbSubmitted && !saving && <span style={{fontSize:10,color:"#9FE1CB"}}>✅ Saved</span>}
-                <button onClick={submitToDatabank} disabled={saving||!ci.fileNo}
+                <button onClick={submitToDatabank} disabled={saving||!ci.cFileNo}
                   style={{padding:"8px 16px",borderRadius:8,border:"none",fontSize:12,fontWeight:700,
                     background:saving?"#94a3b8":dbSubmitted?"#10b981":"#0d9488",
-                    color:"white",cursor:ci.fileNo?"pointer":"not-allowed"}}>
+                    color:"white",cursor:ci.cFileNo?"pointer":"not-allowed"}}>
                   {saving?"Saving...":dbSubmitted?"✅ Saved":"☁️ Save"}
                 </button>
               </div>
