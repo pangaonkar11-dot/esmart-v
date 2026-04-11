@@ -946,7 +946,31 @@ const ReportSection = ({title, color="#0d3b47", icon, children}) => (
   </div>
 );
 
-export default function App() {
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error:null, info:null }; }
+  componentDidCatch(error, info) { this.setState({ error, info }); }
+  render() {
+    if (this.state.error) return (
+      <div style={{padding:24,background:"#fef2f2",minHeight:"100vh",fontFamily:"monospace"}}>
+        <h2 style={{color:"#dc2626"}}>App Error — please send to Dev:</h2>
+        <pre style={{fontSize:11,color:"#991b1b",whiteSpace:"pre-wrap",background:"white",
+          padding:16,borderRadius:8,border:"1px solid #fecaca"}}>
+          {this.state.error.toString()}
+          {this.state.info?.componentStack}
+        </pre>
+        <button onClick={()=>this.setState({error:null,info:null})}
+          style={{marginTop:16,padding:"10px 20px",borderRadius:8,background:"#0d5c6e",
+            color:"white",border:"none",cursor:"pointer",fontWeight:700}}>
+          Try Again
+        </button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
+function AppInner() {
+function App() {
   const [appScreen, setAppScreen] = useState("pin"); // pin|dashboard|workstation
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [tab, setTab] = useState(0);
@@ -1019,38 +1043,47 @@ export default function App() {
   const [clinicianNote, setClinicianNote] = useState("");
   const [plan, setPlan] = useState({ pharmacological:"", nonPharmacological:"", referrals:"", investigations:"", followUpDate:"", prognosis:"" });
 
-  // ── Auto-fetch C and P on FileNo change ────────────────────────────────
+  // ── Auto-fetch C and P when Auto-ID is available ──────────────────────
+  const autoID_computed = generateAutoID(ci.surname||"", ci.dob, ci.mobile1||"", ci.mobile2||"");
+  const hasEnoughForAutoID = !!(ci.surname && ci.dob && (ci.mobile1||ci.mobile2));
   useEffect(() => {
-    if (!ci.fileNo || ci.fileNo.length < 8) return;
-    const timeout = setTimeout(()=>fetchCPData(ci.fileNo), 1000);
+    if (!hasEnoughForAutoID) return;
+    const timeout = setTimeout(()=>fetchCPData(autoID_computed), 1500);
     return ()=>clearTimeout(timeout);
-  }, [ci.fileNo]);
+  }, [ci.surname, ci.dob, ci.mobile1, ci.mobile2]);
 
-  const fetchCPData = async (fileNo) => {
+  const fetchCPData = async (autoID) => {
+    if (!autoID || autoID.length < 8) return;
     setLoadingCP(true);
     try {
-      const url = `${APPS_SCRIPT_URL}?action=getRecord&reg=${encodeURIComponent(fileNo)}&token=${TOKEN}`;
+      const url = `${APPS_SCRIPT_URL}?action=getRecord&reg=${encodeURIComponent(autoID)}&token=${TOKEN}`;
       const res = await fetch(url);
       const json = await res.json();
-      if (json.status==="ok" && json.data) {
+      if (json && json.status==="ok" && json.data) {
         const d = json.data;
         setCData(d.C||null);
         setPData(d.P||null);
-        if (d.V && json.data.sessions?.V > 0) setPrevSession(d.V);
-        // Auto-fill child info from C or P
+        if (d.V && d.sessions?.V > 0) setPrevSession(d.V);
+        // Auto-fill from C or P — only if field is empty
         const src = d.C||d.P||{};
-        if (src["Child Name"]&&!ci.name) upd("name", src["Child Name"]);
-        if (src["Child Date of Birth"]&&!ci.dob) upd("dob", src["Child Date of Birth"]);
-        if (src["Child Age (yrs)"]&&!ci.age) upd("age", src["Child Age (yrs)"]);
-        if (src["Child Gender"]&&!ci.gender) upd("gender", src["Child Gender"]);
-        if (src["School / Institution"]&&!ci.school) upd("school", src["School / Institution"]);
+        if (src["Child First Name"] && !ci.firstName) upd("firstName", src["Child First Name"]||"");
+        if (src["Child Surname"] && !ci.surname) upd("surname", src["Child Surname"]||"");
+        if (src["Date of Birth"] && !ci.dob) upd("dob", src["Date of Birth"]||"");
+        if (src["Age"] && !ci.age) upd("age", src["Age"]||"");
+        if (src["Gender"] && !ci.gender) upd("gender", src["Gender"]||"");
+        if (src["School"] && !ci.school) upd("school", src["School"]||"");
+        if (src["Father Name"] && !ci.fatherName) upd("fatherName", src["Father Name"]||"");
+        if (src["Mother Name"] && !ci.motherName) upd("motherName", src["Mother Name"]||"");
       }
-      // Fetch weekly data
-      const wurl = `${APPS_SCRIPT_URL}?action=getWeekly&reg=${encodeURIComponent(fileNo)}&token=${TOKEN}`;
+    } catch(e) {
+      // Silent fail — never crash
+    }
+    try {
+      const wurl = `${APPS_SCRIPT_URL}?action=getWeekly&reg=${encodeURIComponent(autoID)}&token=${TOKEN}`;
       const wres = await fetch(wurl);
       const wjson = await wres.json();
-      if (wjson.status==="ok") setWeeklyData(wjson.data);
-    } catch(e){}
+      if (wjson && wjson.status==="ok") setWeeklyData(wjson.data);
+    } catch(e) {}
     setLoadingCP(false);
   };
 
@@ -1316,7 +1349,7 @@ export default function App() {
             <div style={{display:"flex",gap:8}}>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
                 {dbSubmitted && !saving && <span style={{fontSize:10,color:"#9FE1CB"}}>✅ Saved</span>}
-                <button onClick={submitToDatabank} disabled={saving||!ci.cFileNo}
+                <button onClick={submitToDatabank} disabled={saving}
                   style={{padding:"8px 16px",borderRadius:8,border:"none",fontSize:12,fontWeight:700,
                     background:saving?"#94a3b8":dbSubmitted?"#10b981":"#0d9488",
                     color:"white",cursor:ci.cFileNo?"pointer":"not-allowed"}}>
@@ -2480,4 +2513,8 @@ export default function App() {
       </div>
     </div>
   );
+}
+
+export default function App() {
+  return <ErrorBoundary><AppInner/></ErrorBoundary>;
 }
