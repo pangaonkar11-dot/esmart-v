@@ -206,26 +206,46 @@ function ReportModal({subject, mode, autoID: propAutoID, onClose}) {
 
   const autoID = propAutoID || subject?.["Auto-ID"] || subject?.["File No."] || "";
 
+  // Safe value — rejects timestamps, gender codes, numbers as clinical scores
+  const safeVal = (v) => {
+    const s2 = String(v||"");
+    if (!s2||s2==="—") return "";
+    if (/^\d{4}-\d{2}-\d{2}T/.test(s2)) return ""; // timestamp
+    if (/^[MFO]$/.test(s2.trim())) return ""; // gender code
+    return s2;
+  };
+
   React.useEffect(() => {
     if (!autoID||autoID==="—") { setLoading(false); return; }
-    const tool = mode==="C"?"C":mode==="P"?"P":mode==="V"?"V":"";
-    if (!tool) { setLoading(false); return; }
-    fetch(`${SCRIPT}?action=getRecord&reg=${encodeURIComponent(autoID)}&token=${TOKEN}`)
-      .then(r=>r.json())
-      .then(j=>{
-        if(j?.status==="ok"&&j?.data) {
-          const d = j.data;
-          setData(mode==="C"?d.C:mode==="P"?d.P:d.V);
-        }
-        setLoading(false);
-      })
-      .catch(()=>setLoading(false));
+    // Try with autoID first, then try old fileNo from subject
+    const oldFileNo = subject?.["File No."]||subject?.["C-File No"]||"";
+    const tryIDs = [autoID];
+    if (oldFileNo && oldFileNo !== autoID) tryIDs.push(oldFileNo);
+
+    const tryFetch = async () => {
+      for (const id of tryIDs) {
+        try {
+          const r = await fetch(`${SCRIPT}?action=getRecord&reg=${encodeURIComponent(id)}&token=${TOKEN}`);
+          const j = await r.json();
+          if (j?.status==="ok"&&j?.data) {
+            const d = j.data;
+            const record = mode==="C"?d.C:mode==="P"?d.P:d.V;
+            if (record) { setData(record); break; }
+          }
+        } catch(e) {}
+      }
+      setLoading(false);
+    };
+    tryFetch();
   },[autoID, mode]);
 
   if (!subject) return null;
-  // Use freshly fetched data if available, fall back to MASTER row
   const s = data || subject;
-  const name = s["Child Name"]||`${s["Child First Name"]||""} ${s["Child Surname"]||""}`.trim()||"Subject";
+  // Build safe name — never show timestamps or gender codes as name
+  const rawName = s["Child Name"]||`${s["Child First Name"]||""} ${s["Child Surname"]||""}`.trim()||"";
+  const name = (/^\d{4}-\d{2}-\d{2}T/.test(rawName)||/^[MF]$/.test(rawName.trim()))
+    ? (s["Auto-ID"]||s["File No."]||"Subject")
+    : (rawName||"Subject");
 
   const Section = ({title,color,children}) => (
     <div style={{marginBottom:16}}>
@@ -297,34 +317,35 @@ function ReportModal({subject, mode, autoID: propAutoID, onClose}) {
                 marginBottom:16,border:"1px solid #bfdbfe",textAlign:"center"}}>
                 <div style={{fontSize:10,color:"#1d4ed8",fontWeight:700,marginBottom:4}}>CIBS-FIS IQ Estimate</div>
                 <div style={{fontSize:52,fontWeight:900,color:"#1d4ed8",lineHeight:1,fontFamily:"monospace"}}>
-                  {s["FIS IQ"]||s["FIS IQ Estimate"]||"—"}
+                  {safeVal(s["FIS IQ"]||s["FIS IQ Estimate"])||"—"}
                 </div>
                 <div style={{fontSize:13,color:"#374151",marginTop:4}}>
-                  {s["FIS Band"]||s["FIS IQ Band"]||"—"}
+                  {safeVal(s["FIS Band"]||s["FIS IQ Band"])||"—"}
                 </div>
                 <div style={{fontSize:11,color:"#64748b",marginTop:2}}>
-                  MA: {s["FIS Mental Age"]||s["FIS Mental Age (yrs)"]||"—"} yrs
-                  · {s["FIS Percentile"]||"—"}th percentile
+                  MA: {safeVal(s["FIS Mental Age"]||s["FIS Mental Age (yrs)"])||"—"} yrs
+                  · {safeVal(s["FIS Percentile"])||"—"}th percentile
                 </div>
               </div>
               <Section title="FIS Subtest Scores" color="#1d4ed8">
-                <Row label="Series (Patterns)" value={s["FIS Series Score"]}/>
-                <Row label="Classification" value={s["FIS Classification Score"]}/>
-                <Row label="Matrix (Grids)" value={s["FIS Matrix Score"]}/>
-                <Row label="Conditions" value={s["FIS Conditions Score"]}/>
+                <Row label="Series (Patterns)" value={safeVal(s["FIS Series Score"]||s["FIS Series"])}/>
+                <Row label="Classification" value={safeVal(s["FIS Classification Score"]||s["FIS Classification"])}/>
+                <Row label="Matrix (Grids)" value={safeVal(s["FIS Matrix Score"]||s["FIS Matrix"])}/>
+                <Row label="Conditions" value={safeVal(s["FIS Conditions Score"]||s["FIS Conditions"])}/>
               </Section>
               <Section title="SCSS Cognitive & Personality Profile" color="#7c3aed">
-                <Row label="Cognitive Quotient" value={s["SCSS CQ"]||s["SCSS Cognitive Quotient"]} highlight/>
-                <Row label="Cognitive Style" value={s["SCSS Cognitive Style"]}/>
-                <Row label="Emotional Intelligence (EQ)" value={s["SCSS EQ"]||s["SCSS EQ Score"]} highlight/>
-                <Row label="EQ Band" value={s["SCSS EQ Band"]}/>
-                <Row label="Mental Health Index" value={s["SCSS MHI"]||s["SCSS Mental Health Index"]}/>
-                <Row label="Combined Risk Index" value={s["SCSS CRI"]||s["SCSS Combined Risk Index"]}/>
-                <Row label="DSM-5 Cluster" value={s["SCSS DSM Cluster"]||s["SCSS DSM-5 Cluster"]}/>
-                <Row label="DSM-5 Features" value={s["SCSS DSM Features"]||s["SCSS DSM-5 Features"]}/>
+                <Row label="Cognitive Quotient" value={safeVal(s["SCSS CQ"]||s["SCSS Cognitive Quotient"])} highlight/>
+                <Row label="Cognitive Style" value={safeVal(s["SCSS Cognitive Style"])}/>
+                <Row label="Emotional Intelligence (EQ)" value={safeVal(s["SCSS EQ"]||s["SCSS EQ Score"])} highlight/>
+                <Row label="EQ Band" value={safeVal(s["SCSS EQ Band"])}/>
+                <Row label="Mental Health Index" value={safeVal(s["SCSS MHI"]||s["SCSS Mental Health Index"])}/>
+                <Row label="Combined Risk Index" value={safeVal(s["SCSS CRI"]||s["SCSS Combined Risk Index"])}/>
+                <Row label="DSM-5 Cluster" value={safeVal(s["SCSS DSM Cluster"]||s["SCSS DSM-5 Cluster"])}/>
+                <Row label="DSM-5 Features" value={safeVal(s["SCSS DSM Features"]||s["SCSS DSM-5 Features"])}/>
               </Section>
               <Section title="Assessment Details" color="#64748b">
-                <Row label="Date" value={(s["Timestamp"]||s["C-Date"]||"").slice(0,10)}/>
+                <Row label="Date" value={safeVal((s["Timestamp"]||s["C-Date"]||"").slice(0,10))||"—"}/>
+                <Row label="Child Name" value={name}/>
                 <Row label="Session" value={s["Session No"]||s["C-Session"]||"1"}/>
               </Section>
             </div>
