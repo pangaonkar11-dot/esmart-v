@@ -351,70 +351,92 @@ function Dashboard({onOpen, onNew, onLock}) {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((s,i)=>{
-                    const cs = s["C-Status"]||""; const ps = s["P-Status"]||""; const vs = s["V-Status"]||"";
-                    const cb = badge(cs); const pb = badge(ps); const vb = badge(vs);
-                    const nm = `${s["Child First Name"]||""} ${s["Child Surname"]||""}`.trim()||"—";
-                    const wk = Number(s["W-Total Weeks"]||0);
+                  {filtered.map((n,i)=>{
+                    const cb=badge(n.cStatus), pb=badge(n.pStatus), vb=badge(n.vStatus);
                     return (
                       <tr key={i}
                         style={{background:i%2===0?"white":"#f8fafc",borderBottom:"1px solid #f1f5f9"}}
                         onMouseEnter={e=>e.currentTarget.style.background="#eff6ff"}
                         onMouseLeave={e=>e.currentTarget.style.background=i%2===0?"white":"#f8fafc"}>
                         <td style={{padding:"10px 12px",fontFamily:"monospace",fontWeight:700,
-                          color:"#0d5c6e",fontSize:10}}>
-                          {s["Auto-ID"]||"—"}
+                          color:"#0d5c6e",fontSize:10,whiteSpace:"nowrap"}}>
+                          {n.autoID}
                         </td>
-                        <td style={{padding:"10px 12px",fontWeight:600,color:"#1e293b"}}>{nm}</td>
-                        <td style={{padding:"10px 12px",color:"#64748b"}}>{s["Date of Birth"]||"—"}</td>
-                        <td style={{padding:"10px 12px",color:"#64748b"}}>{s["Age"]||"—"}</td>
-                        <td style={{padding:"10px 12px",color:"#64748b",maxWidth:100,
+                        <td style={{padding:"10px 12px",fontWeight:600,color:"#1e293b"}}>
+                          {n.fullName||"—"}
+                        </td>
+                        <td style={{padding:"10px 12px",color:"#64748b",whiteSpace:"nowrap"}}>{n.dob}</td>
+                        <td style={{padding:"10px 12px",color:"#64748b"}}>{n.age}</td>
+                        <td style={{padding:"10px 12px",color:"#64748b",maxWidth:120,
                           overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                          {s["School"]||"—"}
+                          {n.school}
                         </td>
-                        {/* C Status */}
                         <td style={{padding:"8px 10px"}}>
-                          <button onClick={()=>cs==="Complete"?onOpen(s,"view-c"):copyLink("C")}
-                            style={{padding:"4px 8px",borderRadius:6,border:`1.5px solid ${cb.border}`,
-                              background:cb.bg,color:cb.color,fontSize:10,fontWeight:700,cursor:"pointer",
-                              display:"flex",alignItems:"center",gap:3,whiteSpace:"nowrap"}}>
-                            {cb.icon} {cb.label}
-                          </button>
-                          {cs!=="Complete"&&(
-                            <div style={{fontSize:9,color:"#94a3b8",marginTop:2,cursor:"pointer"}}
-                              onClick={()=>copyLink("C")}>📋 Copy link</div>
-                          )}
+                          <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                            <span style={{padding:"4px 8px",borderRadius:6,
+                              border:`1.5px solid ${cb.border}`,background:cb.bg,
+                              color:cb.color,fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>
+                              {cb.icon} {cb.label}
+                            </span>
+                            <div style={{display:"flex",gap:3}}>
+                              <button onClick={()=>window.open("https://esmart-c.vercel.app","_blank")}
+                                style={{flex:1,padding:"2px 4px",borderRadius:4,border:"1px solid #bfdbfe",
+                                  background:"#eff6ff",color:"#1d4ed8",fontSize:9,cursor:"pointer",fontWeight:600}}>
+                                🖥 Open
+                              </button>
+                              <button onClick={()=>{navigator.clipboard?.writeText("https://esmart-c.vercel.app");alert("Link copied!");}}
+                                style={{flex:1,padding:"2px 4px",borderRadius:4,border:"1px solid #e2e8f0",
+                                  background:"#f8fafc",color:"#64748b",fontSize:9,cursor:"pointer"}}>
+                                📋 Link
+                              </button>
+                            </div>
+                          </div>
                         </td>
-                        {/* P Status */}
                         <td style={{padding:"8px 10px"}}>
-                          <button onClick={()=>ps==="Complete"?onOpen(s,"view-p"):copyLink("P")}
-                            style={{padding:"4px 8px",borderRadius:6,border:`1.5px solid ${pb.border}`,
-                              background:pb.bg,color:pb.color,fontSize:10,fontWeight:700,cursor:"pointer",
-                              display:"flex",alignItems:"center",gap:3,whiteSpace:"nowrap"}}>
-                            {pb.icon} {pb.label}
-                          </button>
-                          {ps!=="Complete"&&(
-                            <div style={{fontSize:9,color:"#94a3b8",marginTop:2,cursor:"pointer"}}
-                              onClick={()=>copyLink("P")}>📋 Copy link</div>
-                          )}
+                          <div style={{display:"flex",flexDirection:"column",gap:3}}>
+                            <span style={{padding:"4px 8px",borderRadius:6,
+                              border:`1.5px solid ${pb.border}`,background:pb.bg,
+                              color:pb.color,fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>
+                              {pb.icon} {pb.label}
+                            </span>
+                            <div style={{display:"flex",gap:3}}>
+                              <button onClick={()=>window.open("https://esmart-p.vercel.app","_blank")}
+                                style={{flex:1,padding:"2px 4px",borderRadius:4,border:"1px solid #fde68a",
+                                  background:"#fffbeb",color:"#92400e",fontSize:9,cursor:"pointer",fontWeight:600}}>
+                                🖥 Open
+                              </button>
+                              <button onClick={()=>{navigator.clipboard?.writeText("https://esmart-p.vercel.app");alert("Link copied!");}}
+                                style={{flex:1,padding:"2px 4px",borderRadius:4,border:"1px solid #e2e8f0",
+                                  background:"#f8fafc",color:"#64748b",fontSize:9,cursor:"pointer"}}>
+                                📋 Link
+                              </button>
+                            </div>
+                          </div>
                         </td>
-                        {/* V Status */}
                         <td style={{padding:"8px 10px"}}>
-                          <button onClick={()=>onOpen(s,"workstation")}
-                            style={{padding:"4px 8px",borderRadius:6,border:`1.5px solid ${vb.border}`,
-                              background:vb.bg,color:vb.color,fontSize:10,fontWeight:700,cursor:"pointer",
-                              display:"flex",alignItems:"center",gap:3,whiteSpace:"nowrap"}}>
+                          <button onClick={()=>onOpen(n.raw,"workstation")}
+                            style={{padding:"4px 8px",borderRadius:6,
+                              border:`1.5px solid ${vb.border}`,background:vb.bg,
+                              color:vb.color,fontSize:10,fontWeight:700,cursor:"pointer",
+                              display:"block",whiteSpace:"nowrap",width:"100%",marginBottom:3}}>
                             {vb.icon} {vb.label}
+                          </button>
+                          <button onClick={()=>onOpen(n.raw,"workstation")}
+                            style={{width:"100%",padding:"2px 4px",borderRadius:4,border:"none",
+                              background:"linear-gradient(135deg,#712B13,#9a3a1e)",
+                              color:"white",fontSize:9,cursor:"pointer",fontWeight:600}}>
+                            ✏️ Open V
                           </button>
                         </td>
                         <td style={{padding:"8px 10px"}}>
                           {n.weeks>0 ? (
                             <div>
                               <span style={{background:"#f0fdf4",color:"#15803d",borderRadius:6,
-                                padding:"3px 6px",fontSize:10,fontWeight:700,display:"block",marginBottom:2}}>
-                                ✅ Week {n.lastWeek||n.weeks}
+                                padding:"3px 6px",fontSize:10,fontWeight:700,
+                                display:"block",marginBottom:2}}>
+                                ✅ Wk {n.lastWeek||n.weeks}
                               </span>
-                              <button onClick={()=>window.open(`https://esmart-weekly.vercel.app?reg=${n.autoID}`,"_blank")}
+                              <button onClick={()=>window.open("https://esmart-weekly.vercel.app?reg="+n.autoID,"_blank")}
                                 style={{width:"100%",padding:"2px 4px",borderRadius:4,
                                   border:"1px solid #86efac",background:"#f0fdf4",
                                   color:"#15803d",fontSize:9,cursor:"pointer",fontWeight:600}}>
@@ -422,12 +444,16 @@ function Dashboard({onOpen, onNew, onLock}) {
                               </button>
                             </div>
                           ) : (
-                            <span style={{color:"#94a3b8",fontSize:10}}>—</span>
+                            <button onClick={()=>window.open("https://esmart-weekly.vercel.app","_blank")}
+                              style={{padding:"2px 6px",borderRadius:4,border:"1px solid #e2e8f0",
+                                background:"#f8fafc",color:"#64748b",fontSize:9,cursor:"pointer"}}>
+                              📋 Send
+                            </button>
                           )}
                         </td>
                         <td style={{padding:"8px 10px"}}>
-                          <button onClick={()=>onOpen(s,"workstation")}
-                            style={{padding:"6px 12px",borderRadius:7,border:"none",
+                          <button onClick={()=>onOpen(n.raw,"workstation")}
+                            style={{padding:"7px 12px",borderRadius:8,border:"none",
                               background:"linear-gradient(135deg,#0d5c6e,#0d9488)",
                               color:"white",fontSize:11,fontWeight:700,cursor:"pointer",
                               whiteSpace:"nowrap"}}>
