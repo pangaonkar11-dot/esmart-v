@@ -530,32 +530,78 @@ function Dashboard({onOpen, onNew, onLock}) {
   useEffect(()=>{ load(); },[]);
 
   // Normalise subject — handle both old and new column formats
-  const norm = (s) => ({
-    autoID:    s["Auto-ID"]||s["File No."]||s["C-File No"]||"—",
-    firstName: s["Child First Name"]||(s["Child Name"]||"").split(" ")[0]||"",
-    surname:   s["Child Surname"]||(s["Child Name"]||"").split(" ").slice(1).join(" ")||"",
-    fullName:  s["Child Name"]||`${s["Child First Name"]||""} ${s["Child Surname"]||""}`.trim()||"—",
-    dob:       s["Date of Birth"]||s["Child DOB"]||"—",
-    age:       s["Age"]||s["Child Age"]||"—",
-    school:    s["School"]||s["School Name"]||"—",
-    gender:    s["Gender"]||s["Child Gender"]||"",
-    // Status — check multiple indicators for old and new data
-    cStatus: s["C-Status"]||
-      (s["eSMART-C Session"]&&Number(s["eSMART-C Session"])>0?"Complete":"")||
-      (s["FIS IQ"]||s["FIS IQ Estimate"]||s["SCSS CQ"]?"Complete":"")||
-      "Awaited",
-    pStatus: s["P-Status"]||
-      (s["eSMART-P Session"]&&Number(s["eSMART-P Session"])>0?"Complete":"")||
-      (s["P-Risk Level"]||s["P Risk Level"]||s["IDD Severity"]||s["P-IDD Sev"]?"Complete":"")||
-      "Awaited",
-    vStatus: s["V-Status"]||
-      (s["eSMART-V Session"]&&Number(s["eSMART-V Session"])>0?"Complete":"")||
-      (s["V-Dx1"]||s["Primary Diagnosis"]||s["FSIQ Estimate"]?"Complete":"")||
-      "Awaited",
-    weeks:     Number(s["W-Total Weeks"]||0),
-    lastWeek:  s["W-Last Week"]||"",
-    raw:       s,
-  });
+  // Normalise subject — smart detection of old vs new MASTER format
+  const norm = (s) => {
+    try {
+      const isGender = v => v && /^[MFO]$/.test(String(v||"").trim().toUpperCase());
+      const isTS = v => v && String(v||"").match(/^\d{4}-\d{2}-\d{2}T/);
+      const isNum = v => v && /^\d{1,3}$/.test(String(v||"").trim());
+      const fmtDOB = v => {
+        if (!v) return "—";
+        const s2 = String(v);
+        if (isTS(s2)) return s2.slice(0,10);
+        return s2;
+      };
+
+      // Detect if old data was loaded under new headers
+      // Old col[3]=Gender gets mapped to new "Child First Name"
+      const fn0 = String(s["Child First Name"]||"");
+      const sn0 = String(s["Child Surname"]||"");
+      const oldInNew = isGender(fn0) || isTS(sn0) || isNum(fn0);
+
+      let fullName, autoID, dob, age, gender, school;
+
+      if (oldInNew) {
+        // Old data misaligned in new headers — read old keys
+        fullName = String(s["Child Name"]||"");
+        autoID   = String(s["File No."]||s["Auto-ID"]||"—");
+        dob      = "—";
+        age      = String(s["Child Age"]||"—");
+        gender   = String(s["Child Gender"]||"");
+        school   = String(s["School"]||"—");
+      } else {
+        // New data — use new keys
+        const fn = (!isGender(fn0)&&!isTS(fn0)&&!isNum(fn0)) ? fn0 : "";
+        const sn = (!isGender(sn0)&&!isTS(sn0)) ? sn0 : "";
+        fullName = String(s["Child Name"]||(fn||sn?`${fn} ${sn}`.trim():"")||"");
+        autoID   = String(s["Auto-ID"]||s["File No."]||"—");
+        dob      = fmtDOB(s["Date of Birth"]);
+        age      = (!isTS(s["Age"])&&!isGender(s["Age"])) ? String(s["Age"]||"—") : "—";
+        gender   = isGender(s["Gender"]) ? String(s["Gender"]) : "";
+        school   = String(s["School"]||"—");
+      }
+
+      // Status detection — all possible column names
+      const cSess  = Number(s["eSMART-C Session"]||s["C-Session"]||0);
+      const pSess  = Number(s["eSMART-P Session"]||s["P-Session"]||0);
+      const vSess  = Number(s["eSMART-V Session"]||s["V-Session"]||0);
+      const hasCIQ = !!(s["FIS IQ"]||s["FIS IQ Estimate"]||s["SCSS CQ"]||s["FIS Band"]);
+      const hasPRisk = !!(s["P-Risk Level"]||s["P Risk Level"]||s["IDD Severity"]||s["P-IDD Sev"]);
+      const hasVDx   = !!(s["V-Dx1"]||s["Primary Diagnosis"]||s["FSIQ Estimate"]);
+
+      const cStatus = s["C-Status"]==="Complete"||cSess>0||hasCIQ ? "Complete" : "Awaited";
+      const pStatus = s["P-Status"]==="Complete"||pSess>0||hasPRisk ? "Complete" : "Awaited";
+      const vStatus = s["V-Status"]==="Complete"||vSess>0||hasVDx ? "Complete" : "Awaited";
+
+      return {
+        autoID,
+        fullName: fullName||"—",
+        dob,
+        age,
+        school,
+        gender,
+        cStatus, pStatus, vStatus,
+        weeks:    Number(s["W-Total Weeks"]||0),
+        lastWeek: String(s["W-Last Week"]||""),
+        raw: s,
+      };
+    } catch(e) {
+      return {autoID:String(s["File No."]||s["Auto-ID"]||"?"),
+        fullName:"(error)",dob:"",age:"",school:"",
+        cStatus:"Awaited",pStatus:"Awaited",vStatus:"Awaited",
+        weeks:0,lastWeek:"",raw:s};
+    }
+  };
 
   const badge = (status) => {
     if (status==="Complete")   return {bg:"#f0fdf4",color:"#15803d",border:"#86efac",icon:"✅",label:"Complete"};
