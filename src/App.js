@@ -200,11 +200,32 @@ function PINScreen({onUnlock}) {
 
 
 // ── Inline Report Modal ────────────────────────────────────────────────────
-function ReportModal({subject, mode, onClose}) {
+function ReportModal({subject, mode, autoID: propAutoID, onClose}) {
+  const [data, setData] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+
+  const autoID = propAutoID || subject?.["Auto-ID"] || subject?.["File No."] || "";
+
+  React.useEffect(() => {
+    if (!autoID||autoID==="—") { setLoading(false); return; }
+    const tool = mode==="C"?"C":mode==="P"?"P":mode==="V"?"V":"";
+    if (!tool) { setLoading(false); return; }
+    fetch(`${SCRIPT}?action=getRecord&reg=${encodeURIComponent(autoID)}&token=${TOKEN}`)
+      .then(r=>r.json())
+      .then(j=>{
+        if(j?.status==="ok"&&j?.data) {
+          const d = j.data;
+          setData(mode==="C"?d.C:mode==="P"?d.P:d.V);
+        }
+        setLoading(false);
+      })
+      .catch(()=>setLoading(false));
+  },[autoID, mode]);
+
   if (!subject) return null;
-  const s = subject;
+  // Use freshly fetched data if available, fall back to MASTER row
+  const s = data || subject;
   const name = s["Child Name"]||`${s["Child First Name"]||""} ${s["Child Surname"]||""}`.trim()||"Subject";
-  const autoID = s["Auto-ID"]||s["File No."]||"";
 
   const Section = ({title,color,children}) => (
     <div style={{marginBottom:16}}>
@@ -258,7 +279,16 @@ function ReportModal({subject, mode, onClose}) {
         </div>
 
         <div style={{padding:"20px"}}>
-
+          {loading&&(
+            <div style={{textAlign:"center",padding:32}}>
+              <div style={{width:36,height:36,border:"3px solid #e2e8f0",borderTopColor:"#0d5c6e",
+                borderRadius:"50%",animation:"spin 1s linear infinite",margin:"0 auto 12px"}}/>
+              <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+              <p style={{color:"#64748b",fontSize:13}}>Loading report data...</p>
+            </div>
+          )}
+          {!loading&&(
+          <div>
           {/* ── C REPORT ── */}
           {mode==="C"&&(
             <div>
@@ -451,6 +481,7 @@ function ReportModal({subject, mode, onClose}) {
             </div>
           )}
 
+          </div>)}
           {/* Footer buttons */}
           <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
             {autoID&&(
@@ -667,8 +698,8 @@ function Dashboard({onOpen, onNew, onLock}) {
                         <td style={{padding:"8px 10px"}}>
                           <div style={{display:"flex",flexDirection:"column",gap:3}}>
                             <button onClick={()=>{
-                                if(n.cStatus==="Complete") setModal({subject:n.raw,mode:"C"});
-                                else if(n.cStatus==="Incomplete") setModal({subject:n.raw,mode:"incomplete"});
+                                if(n.cStatus==="Complete") setModal({subject:n.raw,mode:"C",autoID:n.autoID});
+                                else if(n.cStatus==="Incomplete") setModal({subject:n.raw,mode:"incomplete",autoID:n.autoID});
                                 else window.open("https://esmart-c.vercel.app","esmart_c");
                               }}
                               style={{padding:"4px 8px",borderRadius:6,width:"100%",cursor:"pointer",
@@ -694,8 +725,8 @@ function Dashboard({onOpen, onNew, onLock}) {
                         <td style={{padding:"8px 10px"}}>
                           <div style={{display:"flex",flexDirection:"column",gap:3}}>
                             <button onClick={()=>{
-                                if(n.pStatus==="Complete") setModal({subject:n.raw,mode:"P"});
-                                else if(n.pStatus==="Incomplete") setModal({subject:n.raw,mode:"incomplete"});
+                                if(n.pStatus==="Complete") setModal({subject:n.raw,mode:"P",autoID:n.autoID});
+                                else if(n.pStatus==="Incomplete") setModal({subject:n.raw,mode:"incomplete",autoID:n.autoID});
                                 else window.open("https://esmart-p.vercel.app","esmart_p");
                               }}
                               style={{padding:"4px 8px",borderRadius:6,width:"100%",cursor:"pointer",
