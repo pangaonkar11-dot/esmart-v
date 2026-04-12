@@ -230,10 +230,19 @@ function Dashboard({onOpen, onNew, onLock}) {
     age:       s["Age"]||s["Child Age"]||"—",
     school:    s["School"]||s["School Name"]||"—",
     gender:    s["Gender"]||s["Child Gender"]||"",
-    // Status — new format uses C-Status, old format uses session count
-    cStatus:   s["C-Status"]||(s["eSMART-C Session"]&&Number(s["eSMART-C Session"])>0?"Complete":"Awaited")||"Awaited",
-    pStatus:   s["P-Status"]||(s["eSMART-P Session"]&&Number(s["eSMART-P Session"])>0?"Complete":"Awaited")||"Awaited",
-    vStatus:   s["V-Status"]||(s["eSMART-V Session"]&&Number(s["eSMART-V Session"])>0?"Complete":"Awaited")||"Awaited",
+    // Status — check multiple indicators for old and new data
+    cStatus: s["C-Status"]||
+      (s["eSMART-C Session"]&&Number(s["eSMART-C Session"])>0?"Complete":"")||
+      (s["FIS IQ"]||s["FIS IQ Estimate"]||s["SCSS CQ"]?"Complete":"")||
+      "Awaited",
+    pStatus: s["P-Status"]||
+      (s["eSMART-P Session"]&&Number(s["eSMART-P Session"])>0?"Complete":"")||
+      (s["P-Risk Level"]||s["P Risk Level"]||s["IDD Severity"]||s["P-IDD Sev"]?"Complete":"")||
+      "Awaited",
+    vStatus: s["V-Status"]||
+      (s["eSMART-V Session"]&&Number(s["eSMART-V Session"])>0?"Complete":"")||
+      (s["V-Dx1"]||s["Primary Diagnosis"]||s["FSIQ Estimate"]?"Complete":"")||
+      "Awaited",
     weeks:     Number(s["W-Total Weeks"]||0),
     lastWeek:  s["W-Last Week"]||"",
     raw:       s,
@@ -377,42 +386,48 @@ function Dashboard({onOpen, onNew, onLock}) {
                         </td>
                         <td style={{padding:"8px 10px"}}>
                           <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                            <span style={{padding:"4px 8px",borderRadius:6,
-                              border:`1.5px solid ${cb.border}`,background:cb.bg,
-                              color:cb.color,fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>
-                              {cb.icon} {cb.label}
-                            </span>
+                            <button onClick={()=>n.cStatus==="Complete"?onOpen(n.raw,"workstation"):window.open("https://esmart-c.vercel.app","esmart_c")}
+                              style={{padding:"4px 8px",borderRadius:6,width:"100%",cursor:"pointer",
+                                border:`1.5px solid ${cb.border}`,background:cb.bg,
+                                color:cb.color,fontSize:10,fontWeight:700,whiteSpace:"nowrap",
+                                display:"block",marginBottom:3,textAlign:"left"}}>
+                              {cb.icon} {n.cStatus==="Complete"?"C Done — View":"C Awaited"}
+                            </button>
                             <div style={{display:"flex",gap:3}}>
-                              <button onClick={()=>window.open("https://esmart-c.vercel.app","_blank")}
+                              <button onClick={()=>window.open("https://esmart-c.vercel.app","esmart_c")}
                                 style={{flex:1,padding:"2px 4px",borderRadius:4,border:"1px solid #bfdbfe",
                                   background:"#eff6ff",color:"#1d4ed8",fontSize:9,cursor:"pointer",fontWeight:600}}>
-                                🖥 Open
+                                🧠 C
                               </button>
-                              <button onClick={()=>{navigator.clipboard?.writeText("https://esmart-c.vercel.app");alert("Link copied!");}}
+                              <button onClick={()=>{navigator.clipboard?.writeText("https://esmart-c.vercel.app");alert("eSMART-C link copied!
+https://esmart-c.vercel.app");}}
                                 style={{flex:1,padding:"2px 4px",borderRadius:4,border:"1px solid #e2e8f0",
-                                  background:"#f8fafc",color:"#64748b",fontSize:9,cursor:"pointer"}}>
-                                📋 Link
+                                  background:"#f8fafc",color:"#1d4ed8",fontSize:9,cursor:"pointer"}}>
+                                📋
                               </button>
                             </div>
                           </div>
                         </td>
                         <td style={{padding:"8px 10px"}}>
                           <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                            <span style={{padding:"4px 8px",borderRadius:6,
-                              border:`1.5px solid ${pb.border}`,background:pb.bg,
-                              color:pb.color,fontSize:10,fontWeight:700,whiteSpace:"nowrap"}}>
-                              {pb.icon} {pb.label}
-                            </span>
+                            <button onClick={()=>n.pStatus==="Complete"?onOpen(n.raw,"workstation"):window.open("https://esmart-p.vercel.app","esmart_p")}
+                              style={{padding:"4px 8px",borderRadius:6,width:"100%",cursor:"pointer",
+                                border:`1.5px solid ${pb.border}`,background:pb.bg,
+                                color:pb.color,fontSize:10,fontWeight:700,whiteSpace:"nowrap",
+                                display:"block",marginBottom:3,textAlign:"left"}}>
+                              {pb.icon} {n.pStatus==="Complete"?"P Done — View":"P Awaited"}
+                            </button>
                             <div style={{display:"flex",gap:3}}>
-                              <button onClick={()=>window.open("https://esmart-p.vercel.app","_blank")}
+                              <button onClick={()=>window.open("https://esmart-p.vercel.app","esmart_p")}
                                 style={{flex:1,padding:"2px 4px",borderRadius:4,border:"1px solid #fde68a",
                                   background:"#fffbeb",color:"#92400e",fontSize:9,cursor:"pointer",fontWeight:600}}>
-                                🖥 Open
+                                👨‍👩‍👧 P
                               </button>
-                              <button onClick={()=>{navigator.clipboard?.writeText("https://esmart-p.vercel.app");alert("Link copied!");}}
+                              <button onClick={()=>{navigator.clipboard?.writeText("https://esmart-p.vercel.app");alert("eSMART-P link copied!
+https://esmart-p.vercel.app");}}
                                 style={{flex:1,padding:"2px 4px",borderRadius:4,border:"1px solid #e2e8f0",
-                                  background:"#f8fafc",color:"#64748b",fontSize:9,cursor:"pointer"}}>
-                                📋 Link
+                                  background:"#fffbeb",color:"#92400e",fontSize:9,cursor:"pointer"}}>
+                                📋
                               </button>
                             </div>
                           </div>
