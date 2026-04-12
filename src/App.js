@@ -248,18 +248,18 @@ function Dashboard({onOpen, onNew, onLock}) {
     alert(`Link copied:\n${url}`);
   };
 
+  const total  = subjects.length;
+  const normed = subjects.map(s => { try { return norm(s); } catch(e) { return {autoID:"ERROR",fullName:"Error reading record",dob:"",age:"",school:"",cStatus:"",pStatus:"",vStatus:"",weeks:0,lastWeek:"",raw:s}; }});
+  const done   = normed.filter(n=>n.cStatus==="Complete"&&n.pStatus==="Complete"&&n.vStatus==="Complete").length;
+  const cpDone = normed.filter(n=>n.cStatus==="Complete"&&n.pStatus==="Complete"&&n.vStatus!=="Complete").length;
+  const weekly = normed.filter(n=>n.weeks>0).length;
+
   const filtered = normed.filter(n=>{
     if (!search) return true;
     const name = n.fullName.toLowerCase();
     const id   = n.autoID.toLowerCase();
     return name.includes(search.toLowerCase())||id.includes(search.toLowerCase());
   });
-
-  const total  = subjects.length;
-  const normed = subjects.map(norm);
-  const done   = normed.filter(n=>n.cStatus==="Complete"&&n.pStatus==="Complete"&&n.vStatus==="Complete").length;
-  const cpDone = normed.filter(n=>n.cStatus==="Complete"&&n.pStatus==="Complete"&&n.vStatus!=="Complete").length;
-  const weekly = normed.filter(n=>n.weeks>0).length;
 
   return (
     <div style={{minHeight:"100vh",background:"#e8ecf0",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
@@ -1893,7 +1893,30 @@ function RSection({title,color,children}) {
 // ═══════════════════════════════════════════════════════════════════════════
 //  MAIN APP — PIN → Dashboard → Workstation
 // ═══════════════════════════════════════════════════════════════════════════
-export default function App() {
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  componentDidCatch(e) { this.setState({ error: e?.toString()||"Unknown error" }); }
+  render() {
+    if (this.state.error) return (
+      <div style={{padding:24,background:"#fef2f2",minHeight:"100vh",fontFamily:"monospace"}}>
+        <h2 style={{color:"#dc2626"}}>Error — send this to Dev:</h2>
+        <pre style={{fontSize:11,color:"#991b1b",whiteSpace:"pre-wrap",
+          background:"white",padding:16,borderRadius:8,border:"1px solid #fecaca"}}>
+          {this.state.error}
+        </pre>
+        <button onClick={()=>this.setState({error:null})}
+          style={{marginTop:16,padding:"10px 20px",borderRadius:8,
+            background:"#0d5c6e",color:"white",border:"none",
+            fontWeight:700,cursor:"pointer",fontSize:14}}>
+          Try Again
+        </button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
+function AppRoot() {
   const [screen,  setScreen]  = useState("pin");
   const [subject, setSubject] = useState(null);
 
@@ -1925,4 +1948,8 @@ export default function App() {
   }
 
   return null;
+}
+
+export default function App() {
+  return <ErrorBoundary><AppRoot/></ErrorBoundary>;
 }
