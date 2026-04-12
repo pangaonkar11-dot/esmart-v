@@ -399,8 +399,7 @@ function Dashboard({onOpen, onNew, onLock}) {
                                   background:"#eff6ff",color:"#1d4ed8",fontSize:9,cursor:"pointer",fontWeight:600}}>
                                 🧠 C
                               </button>
-                              <button onClick={()=>{navigator.clipboard?.writeText("https://esmart-c.vercel.app");alert("eSMART-C link copied!
-https://esmart-c.vercel.app");}}
+                              <button onClick={()=>{navigator.clipboard?.writeText("https://esmart-c.vercel.app");alert("eSMART-C link copied! https://esmart-c.vercel.app");}}
                                 style={{flex:1,padding:"2px 4px",borderRadius:4,border:"1px solid #e2e8f0",
                                   background:"#f8fafc",color:"#1d4ed8",fontSize:9,cursor:"pointer"}}>
                                 📋
@@ -423,8 +422,7 @@ https://esmart-c.vercel.app");}}
                                   background:"#fffbeb",color:"#92400e",fontSize:9,cursor:"pointer",fontWeight:600}}>
                                 👨‍👩‍👧 P
                               </button>
-                              <button onClick={()=>{navigator.clipboard?.writeText("https://esmart-p.vercel.app");alert("eSMART-P link copied!
-https://esmart-p.vercel.app");}}
+                              <button onClick={()=>{navigator.clipboard?.writeText("https://esmart-p.vercel.app");alert("eSMART-P link copied! https://esmart-p.vercel.app");}}
                                 style={{flex:1,padding:"2px 4px",borderRadius:4,border:"1px solid #e2e8f0",
                                   background:"#fffbeb",color:"#92400e",fontSize:9,cursor:"pointer"}}>
                                 📋
