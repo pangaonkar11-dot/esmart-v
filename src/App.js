@@ -13,12 +13,16 @@ const TODAYISO = new Date().toISOString().slice(0,10);
 
 // ── Auto-ID (pure function — no hooks, no side effects) ───────────────────
 function makeAutoID(surname="", dob="", mob1="", mob2="") {
-  const sur  = surname.toUpperCase().replace(/[^A-Z]/g,"").slice(0,3)||"XXX";
-  const dobC = dob.replace(/[^0-9]/g,"");
-  const ddmm = dobC.length>=4 ? dobC.slice(0,4) : "0000";
-  const mob  = ((mob1||mob2).replace(/[^0-9]/g,"").slice(-4))||"0000";
-  const yr   = String(new Date().getFullYear()).slice(-2);
-  return `CIBS-${yr}-${sur}-${ddmm}-${mob}`;
+  try {
+    const sur  = String(surname||"").toUpperCase().replace(/[^A-Z]/g,"").slice(0,3)||"XXX";
+    const dobC = String(dob||"").replace(/[^0-9]/g,"");
+    const ddmm = dobC.length>=4 ? dobC.slice(0,4) : "0000";
+    const mob  = (String(mob1||mob2||"").replace(/[^0-9]/g,"").slice(-4))||"0000";
+    const yr   = String(new Date().getFullYear()).slice(-2);
+    return `CIBS-${yr}-${sur}-${ddmm}-${mob}`;
+  } catch(e) {
+    return `CIBS-${String(new Date().getFullYear()).slice(-2)}-XXX-0000-0000`;
+  }
 }
 
 function calcAge(dob="") {
