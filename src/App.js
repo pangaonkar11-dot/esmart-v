@@ -198,6 +198,283 @@ function PINScreen({onUnlock}) {
   );
 }
 
+
+// ── Inline Report Modal ────────────────────────────────────────────────────
+function ReportModal({subject, mode, onClose}) {
+  if (!subject) return null;
+  const s = subject;
+  const name = s["Child Name"]||`${s["Child First Name"]||""} ${s["Child Surname"]||""}`.trim()||"Subject";
+  const autoID = s["Auto-ID"]||s["File No."]||"";
+
+  const Section = ({title,color,children}) => (
+    <div style={{marginBottom:16}}>
+      <div style={{fontSize:11,fontWeight:800,color,textTransform:"uppercase",
+        letterSpacing:"0.08em",marginBottom:8,paddingBottom:6,
+        borderBottom:`2px solid ${color}25`}}>
+        {title}
+      </div>
+      {children}
+    </div>
+  );
+
+  const Row = ({label,value,highlight=false}) => (
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+      padding:"5px 0",borderBottom:"1px solid #f1f5f9"}}>
+      <span style={{fontSize:11,color:"#64748b"}}>{label}</span>
+      <span style={{fontSize:12,fontWeight:highlight?700:600,
+        color:highlight?"#0d5c6e":"#374151"}}>{value||"—"}</span>
+    </div>
+  );
+
+  const Badge = ({label,color="#10b981",bg="#f0fdf4"}) => (
+    <span style={{background:bg,color,borderRadius:99,padding:"2px 10px",
+      fontSize:10,fontWeight:700,border:`1px solid ${color}40`}}>{label}</span>
+  );
+
+  return (
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.6)",
+      zIndex:200,display:"flex",alignItems:"center",justifyContent:"center",
+      padding:16}} onClick={onClose}>
+      <div style={{background:"white",borderRadius:16,width:"100%",maxWidth:520,
+        maxHeight:"85vh",overflowY:"auto",boxShadow:"0 32px 80px rgba(0,0,0,0.4)"}}
+        onClick={e=>e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{background:"linear-gradient(135deg,#0d1f2d,#0d3b47)",
+          padding:"16px 20px",borderRadius:"16px 16px 0 0",
+          display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div>
+            <div style={{fontSize:9,color:"#9FE1CB",textTransform:"uppercase",
+              letterSpacing:"0.15em",marginBottom:2}}>
+              {mode==="C"?"eSMART-C Report":mode==="P"?"eSMART-P Report":"eSMART-V Report"}
+            </div>
+            <div style={{fontSize:16,fontWeight:800,color:"white"}}>{name}</div>
+            <div style={{fontSize:10,color:"rgba(255,255,255,0.5)",fontFamily:"monospace"}}>{autoID}</div>
+          </div>
+          <button onClick={onClose}
+            style={{width:32,height:32,borderRadius:"50%",border:"none",
+              background:"rgba(255,255,255,0.15)",color:"white",
+              fontSize:18,cursor:"pointer",lineHeight:1}}>×</button>
+        </div>
+
+        <div style={{padding:"20px"}}>
+
+          {/* ── C REPORT ── */}
+          {mode==="C"&&(
+            <div>
+              {/* FIS IQ */}
+              <div style={{background:"#eff6ff",borderRadius:12,padding:"16px",
+                marginBottom:16,border:"1px solid #bfdbfe",textAlign:"center"}}>
+                <div style={{fontSize:10,color:"#1d4ed8",fontWeight:700,marginBottom:4}}>CIBS-FIS IQ Estimate</div>
+                <div style={{fontSize:52,fontWeight:900,color:"#1d4ed8",lineHeight:1,fontFamily:"monospace"}}>
+                  {s["FIS IQ"]||s["FIS IQ Estimate"]||"—"}
+                </div>
+                <div style={{fontSize:13,color:"#374151",marginTop:4}}>
+                  {s["FIS Band"]||s["FIS IQ Band"]||"—"}
+                </div>
+                <div style={{fontSize:11,color:"#64748b",marginTop:2}}>
+                  MA: {s["FIS Mental Age"]||s["FIS Mental Age (yrs)"]||"—"} yrs
+                  · {s["FIS Percentile"]||"—"}th percentile
+                </div>
+              </div>
+              <Section title="FIS Subtest Scores" color="#1d4ed8">
+                <Row label="Series (Patterns)" value={s["FIS Series Score"]}/>
+                <Row label="Classification" value={s["FIS Classification Score"]}/>
+                <Row label="Matrix (Grids)" value={s["FIS Matrix Score"]}/>
+                <Row label="Conditions" value={s["FIS Conditions Score"]}/>
+              </Section>
+              <Section title="SCSS Cognitive & Personality Profile" color="#7c3aed">
+                <Row label="Cognitive Quotient" value={s["SCSS CQ"]||s["SCSS Cognitive Quotient"]} highlight/>
+                <Row label="Cognitive Style" value={s["SCSS Cognitive Style"]}/>
+                <Row label="Emotional Intelligence (EQ)" value={s["SCSS EQ"]||s["SCSS EQ Score"]} highlight/>
+                <Row label="EQ Band" value={s["SCSS EQ Band"]}/>
+                <Row label="Mental Health Index" value={s["SCSS MHI"]||s["SCSS Mental Health Index"]}/>
+                <Row label="Combined Risk Index" value={s["SCSS CRI"]||s["SCSS Combined Risk Index"]}/>
+                <Row label="DSM-5 Cluster" value={s["SCSS DSM Cluster"]||s["SCSS DSM-5 Cluster"]}/>
+                <Row label="DSM-5 Features" value={s["SCSS DSM Features"]||s["SCSS DSM-5 Features"]}/>
+              </Section>
+              <Section title="Assessment Details" color="#64748b">
+                <Row label="Date" value={(s["Timestamp"]||s["C-Date"]||"").slice(0,10)}/>
+                <Row label="Session" value={s["Session No"]||s["C-Session"]||"1"}/>
+              </Section>
+            </div>
+          )}
+
+          {/* ── P REPORT ── */}
+          {mode==="P"&&(
+            <div>
+              {/* Risk Level */}
+              {(s["P-Risk Level"]||s["P Risk Level"]||s["Risk Level"])&&(
+                <div style={{borderRadius:12,padding:"14px 16px",marginBottom:16,
+                  background:s["P-Risk Level"]==="LEVEL 3"||s["Risk Level"]==="LEVEL 3"?"#fef2f2":
+                             s["P-Risk Level"]==="LEVEL 2"||s["Risk Level"]==="LEVEL 2"?"#fffbeb":"#f0fdf4",
+                  border:`2px solid ${s["P-Risk Level"]==="LEVEL 3"||s["Risk Level"]==="LEVEL 3"?"#fca5a5":
+                          s["P-Risk Level"]==="LEVEL 2"||s["Risk Level"]==="LEVEL 2"?"#fde68a":"#86efac"}`}}>
+                  <div style={{fontSize:10,fontWeight:700,color:"#64748b",marginBottom:4}}>Overall Risk Level</div>
+                  <div style={{fontSize:22,fontWeight:900,
+                    color:s["P-Risk Level"]==="LEVEL 3"||s["Risk Level"]==="LEVEL 3"?"#dc2626":
+                         s["P-Risk Level"]==="LEVEL 2"||s["Risk Level"]==="LEVEL 2"?"#d97706":"#16a34a"}}>
+                    {s["P-Risk Level"]||s["P Risk Level"]||s["Risk Level"]||"—"}
+                  </div>
+                  <div style={{fontSize:12,color:"#374151"}}>
+                    {s["P-Risk Label"]||s["Risk Label"]||""}
+                  </div>
+                  {(s["P-Suicide Flag"]||s["Suicide Risk Flag"])==="FLAGGED"&&(
+                    <div style={{marginTop:8,background:"#dc2626",borderRadius:6,
+                      padding:"6px 10px",color:"white",fontSize:11,fontWeight:700}}>
+                      ⚠️ SUICIDE RISK FLAGGED — Immediate review required
+                    </div>
+                  )}
+                </div>
+              )}
+              <Section title="Domain Scores" color="#633806">
+                {[
+                  ["IDD","P-IDD Score","P-IDD Sev","Intellectual Disability","IDD Score","IDD Severity"],
+                  ["ADHD","P-ADHD Score","P-ADHD Sev","ADHD","ADHD Score","ADHD Severity"],
+                  ["ASD","P-ASD Score","P-ASD Sev","Autism Spectrum","ASD Score","ASD Severity"],
+                  ["SLD","P-SLD Score","P-SLD Sev","Learning Disorder","SLD Score","SLD Severity"],
+                  ["MDD","P-MDD Score","P-MDD Sev","Depression","MDD Score","MDD Severity"],
+                  ["ANX","P-ANX Score","P-ANX Sev","Anxiety","Anxiety Score","Anxiety Severity"],
+                  ["ODD","P-ODD Score","P-ODD Sev","ODD","ODD Score","ODD Severity"],
+                  ["CD","P-CD Score","P-CD Sev","Conduct Disorder","CD Score","CD Severity"],
+                ].map(([code,sk,svk,label,sk2,svk2])=>{
+                  const score = s[sk]||s[sk2]||"";
+                  const sev   = s[svk]||s[svk2]||"";
+                  if (!score&&!sev) return null;
+                  const sevColor = sev==="Severe"?"#dc2626":sev==="Moderate"?"#d97706":sev==="Mild"?"#65a30d":"#16a34a";
+                  return (
+                    <div key={code} style={{display:"flex",justifyContent:"space-between",
+                      alignItems:"center",padding:"6px 0",borderBottom:"1px solid #f1f5f9"}}>
+                      <span style={{fontSize:11,color:"#64748b"}}>{label}</span>
+                      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                        {score&&<span style={{fontSize:12,fontWeight:700,color:"#374151"}}>{score}</span>}
+                        {sev&&<Badge label={sev} color={sevColor}
+                          bg={sev==="Severe"?"#fef2f2":sev==="Moderate"?"#fffbeb":sev==="Mild"?"#f7fee7":"#f0fdf4"}/>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </Section>
+              <Section title="Informant Details" color="#64748b">
+                <Row label="Informant" value={s["P-Informant"]||s["Informant Name"]}/>
+                <Row label="Relationship" value={s["P-Relation"]||s["Informant Relation"]}/>
+                <Row label="Age Band" value={s["P-Age Band"]||s["Age Band"]}/>
+                <Row label="Total Score" value={s["P-Total Score"]||s["Total Score"]}/>
+                <Row label="Date" value={(s["Timestamp"]||s["P-Date"]||"").slice(0,10)}/>
+              </Section>
+            </div>
+          )}
+
+          {/* ── V REPORT ── */}
+          {mode==="V"&&(
+            <div>
+              <Section title="Diagnoses" color="#7c3aed">
+                {s["V-Dx1"]&&<Row label="Primary" value={s["V-Dx1"]} highlight/>}
+                {s["V-Dx2"]&&<Row label="Level 2" value={s["V-Dx2"]}/>}
+                {s["V-Dx3"]&&<Row label="Level 3" value={s["V-Dx3"]}/>}
+                {(s["V-All Diagnoses"]||s["All Diagnoses"])&&
+                  <Row label="All" value={s["V-All Diagnoses"]||s["All Diagnoses"]}/>}
+              </Section>
+              <Section title="Clinical Assessment" color="#0d5c6e">
+                <Row label="FSIQ Estimate" value={s["V-FSIQ"]||s["FSIQ Estimate"]} highlight/>
+                <Row label="CGI-S (Severity)" value={s["V-CGI-S"]||s["CGI-S"]}/>
+                <Row label="CGI-I (Improvement)" value={s["CGI-I"]}/>
+                <Row label="Clinician" value={s["V-Clinician"]||s["Clinician Name"]}/>
+                <Row label="Setting" value={s["V-Setting"]||s["Setting"]}/>
+                <Row label="Date" value={(s["V-Date"]||s["Assessment Date"]||"").slice(0,10)}/>
+              </Section>
+              {(s["V-Medications"]||s["Medications"])&&(
+                <Section title="Medications" color="#7c3aed">
+                  <div style={{fontSize:12,color:"#374151",lineHeight:1.8}}>
+                    {s["V-Medications"]||s["Medications"]}
+                  </div>
+                </Section>
+              )}
+              {(s["V-Treatment Plan"]||s["Non-Pharmacological Plan"])&&(
+                <Section title="Treatment Plan" color="#0d9488">
+                  <div style={{fontSize:12,color:"#374151",lineHeight:1.8}}>
+                    {s["V-Treatment Plan"]||s["Non-Pharmacological Plan"]}
+                  </div>
+                </Section>
+              )}
+              {(s["V-Follow-Up Date"]||s["Follow-Up Date"])&&(
+                <Row label="Follow-Up Date" value={s["V-Follow-Up Date"]||s["Follow-Up Date"]}/>
+              )}
+            </div>
+          )}
+
+          {/* ── INCOMPLETE REPORT ── */}
+          {mode==="incomplete"&&(
+            <div>
+              <div style={{background:"#fffbeb",borderRadius:10,padding:"12px 14px",
+                marginBottom:16,border:"1px solid #fde68a"}}>
+                <p style={{margin:0,fontSize:13,fontWeight:700,color:"#92400e"}}>
+                  ⚠️ This assessment is incomplete
+                </p>
+                <p style={{margin:"4px 0 0",fontSize:12,color:"#78350f"}}>
+                  The following required information is missing or partially filled.
+                </p>
+              </div>
+              {!s["FIS IQ"]&&!s["FIS IQ Estimate"]&&(
+                <div style={{display:"flex",gap:8,marginBottom:8,padding:"8px 12px",
+                  background:"#fef2f2",borderRadius:8,border:"1px solid #fecaca"}}>
+                  <span>❌</span>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:700,color:"#dc2626"}}>eSMART-C not completed</div>
+                    <div style={{fontSize:11,color:"#64748b"}}>Cognitive assessment (FIS + SCSS) is missing</div>
+                  </div>
+                </div>
+              )}
+              {!s["P-Risk Level"]&&!s["Risk Level"]&&(
+                <div style={{display:"flex",gap:8,marginBottom:8,padding:"8px 12px",
+                  background:"#fef2f2",borderRadius:8,border:"1px solid #fecaca"}}>
+                  <span>❌</span>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:700,color:"#dc2626"}}>eSMART-P not completed</div>
+                    <div style={{fontSize:11,color:"#64748b"}}>Parent questionnaire (behavioural screening) is missing</div>
+                  </div>
+                </div>
+              )}
+              {!s["V-Dx1"]&&!s["Primary Diagnosis"]&&(
+                <div style={{display:"flex",gap:8,marginBottom:8,padding:"8px 12px",
+                  background:"#fef2f2",borderRadius:8,border:"1px solid #fecaca"}}>
+                  <span>❌</span>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:700,color:"#dc2626"}}>eSMART-V not completed</div>
+                    <div style={{fontSize:11,color:"#64748b"}}>Clinician validation (diagnosis + plan) is missing</div>
+                  </div>
+                </div>
+              )}
+              <p style={{fontSize:12,color:"#64748b",marginTop:12}}>
+                Complete the missing modules to generate a full combined report.
+              </p>
+            </div>
+          )}
+
+          {/* Footer buttons */}
+          <div style={{display:"flex",gap:8,marginTop:16,flexWrap:"wrap"}}>
+            {autoID&&(
+              <a href={`https://esmart-report.vercel.app?reg=${autoID}&mode=clinical`}
+                target="_blank" rel="noopener noreferrer"
+                style={{flex:1,padding:"10px 14px",borderRadius:9,
+                  background:"linear-gradient(135deg,#0d3b47,#0d9488)",
+                  color:"white",fontSize:12,fontWeight:700,textDecoration:"none",
+                  textAlign:"center",display:"block"}}>
+                📋 Open Combined Report →
+              </a>
+            )}
+            <button onClick={onClose}
+              style={{padding:"10px 16px",borderRadius:9,border:"1.5px solid #e2e8f0",
+                background:"#f8fafc",color:"#64748b",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  DASHBOARD
 // ═══════════════════════════════════════════════════════════════════════════
@@ -206,6 +483,7 @@ function Dashboard({onOpen, onNew, onLock}) {
   const [loading, setLoading]   = useState(false);
   const [search, setSearch]     = useState("");
   const [msg, setMsg]           = useState("");
+  const [modal, setModal]       = useState(null); // {subject, mode}
 
   const load = async () => {
     setLoading(true); setMsg("");
@@ -276,6 +554,8 @@ function Dashboard({onOpen, onNew, onLock}) {
 
   return (
     <div style={{minHeight:"100vh",background:"#e8ecf0",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+      {/* Report Modal */}
+      {modal&&<ReportModal subject={modal.subject} mode={modal.mode} onClose={()=>setModal(null)}/>}
       {/* Header */}
       <div style={{background:"linear-gradient(135deg,#0d1f2d,#0d3b47)",padding:"14px 20px"}}>
         <div style={{maxWidth:1100,margin:"0 auto",display:"flex",
@@ -386,20 +666,24 @@ function Dashboard({onOpen, onNew, onLock}) {
                         </td>
                         <td style={{padding:"8px 10px"}}>
                           <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                            <button onClick={()=>n.cStatus==="Complete"?onOpen(n.raw,"workstation"):window.open("https://esmart-c.vercel.app","esmart_c")}
+                            <button onClick={()=>{
+                                if(n.cStatus==="Complete") setModal({subject:n.raw,mode:"C"});
+                                else if(n.cStatus==="Incomplete") setModal({subject:n.raw,mode:"incomplete"});
+                                else window.open("https://esmart-c.vercel.app","esmart_c");
+                              }}
                               style={{padding:"4px 8px",borderRadius:6,width:"100%",cursor:"pointer",
                                 border:`1.5px solid ${cb.border}`,background:cb.bg,
                                 color:cb.color,fontSize:10,fontWeight:700,whiteSpace:"nowrap",
                                 display:"block",marginBottom:3,textAlign:"left"}}>
-                              {cb.icon} {n.cStatus==="Complete"?"C Done — View":"C Awaited"}
+                              {cb.icon} {n.cStatus==="Complete"?"📊 C Report":n.cStatus==="Incomplete"?"⚠️ Incomplete":"⏳ Open C"}
                             </button>
                             <div style={{display:"flex",gap:3}}>
                               <button onClick={()=>window.open("https://esmart-c.vercel.app","esmart_c")}
                                 style={{flex:1,padding:"2px 4px",borderRadius:4,border:"1px solid #bfdbfe",
                                   background:"#eff6ff",color:"#1d4ed8",fontSize:9,cursor:"pointer",fontWeight:600}}>
-                                🧠 C
+                                🧠 Start C
                               </button>
-                              <button onClick={()=>{navigator.clipboard?.writeText("https://esmart-c.vercel.app");alert("eSMART-C link copied! https://esmart-c.vercel.app");}}
+                              <button onClick={()=>{navigator.clipboard?.writeText("https://esmart-c.vercel.app");alert("eSMART-C link copied!");}}
                                 style={{flex:1,padding:"2px 4px",borderRadius:4,border:"1px solid #e2e8f0",
                                   background:"#f8fafc",color:"#1d4ed8",fontSize:9,cursor:"pointer"}}>
                                 📋
@@ -409,20 +693,24 @@ function Dashboard({onOpen, onNew, onLock}) {
                         </td>
                         <td style={{padding:"8px 10px"}}>
                           <div style={{display:"flex",flexDirection:"column",gap:3}}>
-                            <button onClick={()=>n.pStatus==="Complete"?onOpen(n.raw,"workstation"):window.open("https://esmart-p.vercel.app","esmart_p")}
+                            <button onClick={()=>{
+                                if(n.pStatus==="Complete") setModal({subject:n.raw,mode:"P"});
+                                else if(n.pStatus==="Incomplete") setModal({subject:n.raw,mode:"incomplete"});
+                                else window.open("https://esmart-p.vercel.app","esmart_p");
+                              }}
                               style={{padding:"4px 8px",borderRadius:6,width:"100%",cursor:"pointer",
                                 border:`1.5px solid ${pb.border}`,background:pb.bg,
                                 color:pb.color,fontSize:10,fontWeight:700,whiteSpace:"nowrap",
                                 display:"block",marginBottom:3,textAlign:"left"}}>
-                              {pb.icon} {n.pStatus==="Complete"?"P Done — View":"P Awaited"}
+                              {pb.icon} {n.pStatus==="Complete"?"📊 P Report":n.pStatus==="Incomplete"?"⚠️ Incomplete":"⏳ Open P"}
                             </button>
                             <div style={{display:"flex",gap:3}}>
                               <button onClick={()=>window.open("https://esmart-p.vercel.app","esmart_p")}
                                 style={{flex:1,padding:"2px 4px",borderRadius:4,border:"1px solid #fde68a",
                                   background:"#fffbeb",color:"#92400e",fontSize:9,cursor:"pointer",fontWeight:600}}>
-                                👨‍👩‍👧 P
+                                👨‍👩‍👧 Start P
                               </button>
-                              <button onClick={()=>{navigator.clipboard?.writeText("https://esmart-p.vercel.app");alert("eSMART-P link copied! https://esmart-p.vercel.app");}}
+                              <button onClick={()=>{navigator.clipboard?.writeText("https://esmart-p.vercel.app");alert("eSMART-P link copied!");}}
                                 style={{flex:1,padding:"2px 4px",borderRadius:4,border:"1px solid #e2e8f0",
                                   background:"#fffbeb",color:"#92400e",fontSize:9,cursor:"pointer"}}>
                                 📋
@@ -431,18 +719,22 @@ function Dashboard({onOpen, onNew, onLock}) {
                           </div>
                         </td>
                         <td style={{padding:"8px 10px"}}>
-                          <button onClick={()=>onOpen(n.raw,"workstation")}
+                          <button onClick={()=>{
+                              if(n.vStatus==="Complete") setModal({subject:n.raw,mode:"V"});
+                              else if(n.vStatus==="Incomplete") setModal({subject:n.raw,mode:"incomplete"});
+                              else onOpen(n.raw,"workstation");
+                            }}
                             style={{padding:"4px 8px",borderRadius:6,
                               border:`1.5px solid ${vb.border}`,background:vb.bg,
                               color:vb.color,fontSize:10,fontWeight:700,cursor:"pointer",
                               display:"block",whiteSpace:"nowrap",width:"100%",marginBottom:3}}>
-                            {vb.icon} {vb.label}
+                            {vb.icon} {n.vStatus==="Complete"?"📊 V Report":n.vStatus==="Incomplete"?"⚠️ Incomplete":"⏳ Start V"}
                           </button>
                           <button onClick={()=>onOpen(n.raw,"workstation")}
                             style={{width:"100%",padding:"2px 4px",borderRadius:4,border:"none",
                               background:"linear-gradient(135deg,#712B13,#9a3a1e)",
                               color:"white",fontSize:9,cursor:"pointer",fontWeight:600}}>
-                            ✏️ Open V
+                            ✏️ Edit V
                           </button>
                         </td>
                         <td style={{padding:"8px 10px"}}>
@@ -469,13 +761,33 @@ function Dashboard({onOpen, onNew, onLock}) {
                           )}
                         </td>
                         <td style={{padding:"8px 10px"}}>
-                          <button onClick={()=>onOpen(n.raw,"workstation")}
-                            style={{padding:"7px 12px",borderRadius:8,border:"none",
-                              background:"linear-gradient(135deg,#0d5c6e,#0d9488)",
-                              color:"white",fontSize:11,fontWeight:700,cursor:"pointer",
-                              whiteSpace:"nowrap"}}>
-                            Open V →
-                          </button>
+                          <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                            {(n.cStatus==="Complete"||n.pStatus==="Complete")&&(
+                              <button onClick={()=>window.open(`https://esmart-report.vercel.app?reg=${n.autoID}&mode=clinical`,"_blank")}
+                                style={{padding:"6px 10px",borderRadius:7,border:"none",
+                                  background:"linear-gradient(135deg,#0d3b47,#0d9488)",
+                                  color:"white",fontSize:10,fontWeight:700,cursor:"pointer",
+                                  whiteSpace:"nowrap"}}>
+                                📋 Combined Report
+                              </button>
+                            )}
+                            {(n.cStatus==="Complete"||n.pStatus==="Complete")&&(
+                              <button onClick={()=>window.open(`https://esmart-report.vercel.app?reg=${n.autoID}&mode=family`,"_blank")}
+                                style={{padding:"6px 10px",borderRadius:7,border:"none",
+                                  background:"linear-gradient(135deg,#0d9488,#10b981)",
+                                  color:"white",fontSize:10,fontWeight:700,cursor:"pointer",
+                                  whiteSpace:"nowrap"}}>
+                                👨‍👩‍👧 Family Report
+                              </button>
+                            )}
+                            <button onClick={()=>onOpen(n.raw,"workstation")}
+                              style={{padding:"6px 10px",borderRadius:7,border:"none",
+                                background:"linear-gradient(135deg,#0d5c6e,#0d3b47)",
+                                color:"white",fontSize:10,fontWeight:700,cursor:"pointer",
+                                whiteSpace:"nowrap"}}>
+                              🏥 Open V →
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
