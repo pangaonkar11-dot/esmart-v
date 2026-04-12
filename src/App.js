@@ -216,6 +216,25 @@ function Dashboard({onOpen, onNew, onLock}) {
 
   useEffect(()=>{ load(); },[]);
 
+  // Normalise subject — handle both old and new column formats
+  const norm = (s) => ({
+    autoID:    s["Auto-ID"]||s["File No."]||s["C-File No"]||"—",
+    firstName: s["Child First Name"]||(s["Child Name"]||"").split(" ")[0]||"",
+    surname:   s["Child Surname"]||(s["Child Name"]||"").split(" ").slice(1).join(" ")||"",
+    fullName:  s["Child Name"]||`${s["Child First Name"]||""} ${s["Child Surname"]||""}`.trim()||"—",
+    dob:       s["Date of Birth"]||s["Child DOB"]||"—",
+    age:       s["Age"]||s["Child Age"]||"—",
+    school:    s["School"]||s["School Name"]||"—",
+    gender:    s["Gender"]||s["Child Gender"]||"",
+    // Status — new format uses C-Status, old format uses session count
+    cStatus:   s["C-Status"]||(s["eSMART-C Session"]&&Number(s["eSMART-C Session"])>0?"Complete":"Awaited")||"Awaited",
+    pStatus:   s["P-Status"]||(s["eSMART-P Session"]&&Number(s["eSMART-P Session"])>0?"Complete":"Awaited")||"Awaited",
+    vStatus:   s["V-Status"]||(s["eSMART-V Session"]&&Number(s["eSMART-V Session"])>0?"Complete":"Awaited")||"Awaited",
+    weeks:     Number(s["W-Total Weeks"]||0),
+    lastWeek:  s["W-Last Week"]||"",
+    raw:       s,
+  });
+
   const badge = (status) => {
     if (status==="Complete")   return {bg:"#f0fdf4",color:"#15803d",border:"#86efac",icon:"✅",label:"Complete"};
     if (status==="Incomplete") return {bg:"#fffbeb",color:"#d97706",border:"#fde68a",icon:"⚠️",label:"Incomplete"};
@@ -229,17 +248,18 @@ function Dashboard({onOpen, onNew, onLock}) {
     alert(`Link copied:\n${url}`);
   };
 
-  const filtered = subjects.filter(s=>{
+  const filtered = normed.filter(n=>{
     if (!search) return true;
-    const name = `${s["Child First Name"]||""} ${s["Child Surname"]||""}`.toLowerCase();
-    const id   = (s["Auto-ID"]||"").toLowerCase();
+    const name = n.fullName.toLowerCase();
+    const id   = n.autoID.toLowerCase();
     return name.includes(search.toLowerCase())||id.includes(search.toLowerCase());
   });
 
   const total  = subjects.length;
-  const done   = subjects.filter(s=>s["C-Status"]==="Complete"&&s["P-Status"]==="Complete"&&s["V-Status"]==="Complete").length;
-  const cpDone = subjects.filter(s=>s["C-Status"]==="Complete"&&s["P-Status"]==="Complete"&&(!s["V-Status"]||s["V-Status"]!=="Complete")).length;
-  const weekly = subjects.filter(s=>Number(s["W-Total Weeks"]||0)>0).length;
+  const normed = subjects.map(norm);
+  const done   = normed.filter(n=>n.cStatus==="Complete"&&n.pStatus==="Complete"&&n.vStatus==="Complete").length;
+  const cpDone = normed.filter(n=>n.cStatus==="Complete"&&n.pStatus==="Complete"&&n.vStatus!=="Complete").length;
+  const weekly = normed.filter(n=>n.weeks>0).length;
 
   return (
     <div style={{minHeight:"100vh",background:"#e8ecf0",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
@@ -388,10 +408,22 @@ function Dashboard({onOpen, onNew, onLock}) {
                           </button>
                         </td>
                         <td style={{padding:"8px 10px"}}>
-                          {wk>0
-                            ? <span style={{background:"#f0fdf4",color:"#15803d",borderRadius:6,
-                                padding:"3px 8px",fontSize:10,fontWeight:700}}>📱 {wk} wk</span>
-                            : <span style={{color:"#94a3b8",fontSize:10}}>—</span>}
+                          {n.weeks>0 ? (
+                            <div>
+                              <span style={{background:"#f0fdf4",color:"#15803d",borderRadius:6,
+                                padding:"3px 6px",fontSize:10,fontWeight:700,display:"block",marginBottom:2}}>
+                                ✅ Week {n.lastWeek||n.weeks}
+                              </span>
+                              <button onClick={()=>window.open(`https://esmart-weekly.vercel.app?reg=${n.autoID}`,"_blank")}
+                                style={{width:"100%",padding:"2px 4px",borderRadius:4,
+                                  border:"1px solid #86efac",background:"#f0fdf4",
+                                  color:"#15803d",fontSize:9,cursor:"pointer",fontWeight:600}}>
+                                📱 View
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{color:"#94a3b8",fontSize:10}}>—</span>
+                          )}
                         </td>
                         <td style={{padding:"8px 10px"}}>
                           <button onClick={()=>onOpen(s,"workstation")}
@@ -444,24 +476,29 @@ function Workstation({initSubject, onBack}) {
   };
   const [ci, setCi] = useState(() => {
     if (!initSubject) return blankCI;
+    const s = initSubject;
+    // Handle both old and new column name formats
+    const childName = s["Child Name"]||"";
+    const firstName = s["Child First Name"]||(childName.split(" ")[0])||"";
+    const surname   = s["Child Surname"]||(childName.split(" ").slice(1).join(" "))||"";
     return {
       ...blankCI,
-      cibsReg:   initSubject["CIBS Reg No"]||"",
-      cFileNo:   initSubject["C-File No"]||"",
-      firstName: initSubject["Child First Name"]||"",
-      surname:   initSubject["Child Surname"]||"",
-      dob:       initSubject["Date of Birth"]||"",
-      age:       initSubject["Age"]||"",
-      gender:    initSubject["Gender"]||"",
-      fatherName:initSubject["Father Name"]||"",
-      motherName:initSubject["Mother Name"]||"",
-      mobile1:   initSubject["Mobile 1"]||"",
-      mobile2:   initSubject["Mobile 2"]||"",
-      email1:    initSubject["Email 1"]||"",
-      email2:    initSubject["Email 2"]||"",
-      school:    initSubject["School"]||"",
-      grade:     initSubject["Class"]||"",
-      city:      initSubject["City"]||"",
+      cibsReg:   s["CIBS Reg No"]||s["File No."]||"",
+      cFileNo:   s["C-File No"]||s["File No."]||"",
+      firstName,
+      surname,
+      dob:       s["Date of Birth"]||s["Child DOB"]||"",
+      age:       s["Age"]||s["Child Age"]||"",
+      gender:    s["Gender"]||s["Child Gender"]||"",
+      fatherName:s["Father Name"]||s["Father's Name"]||"",
+      motherName:s["Mother Name"]||s["Mother's Name"]||"",
+      mobile1:   s["Mobile 1"]||s["Mobile"]||"",
+      mobile2:   s["Mobile 2"]||"",
+      email1:    s["Email 1"]||s["Email"]||"",
+      email2:    s["Email 2"]||"",
+      school:    s["School"]||s["School Name"]||"",
+      grade:     s["Class"]||s["Grade"]||"",
+      city:      s["City"]||"",
     };
   });
   const upd = (k,v) => setCi(p=>({...p,[k]:v}));
@@ -525,7 +562,12 @@ function Workstation({initSubject, onBack}) {
     setLoadingCP(true);
     const doFetch = async () => {
       try {
-        const r = await fetch(`${SCRIPT}?action=getRecord&reg=${encodeURIComponent(autoID)}&token=${TOKEN}`);
+        // Try autoID first, fallback to old File No.
+      const fetchID = (autoID&&!autoID.includes("XXX")&&!autoID.includes("0000"))
+        ? autoID
+        : (initSubject?.["File No."]||initSubject?.["C-File No"]||"");
+      if (!fetchID) { setLoadingCP(false); return; }
+      const r = await fetch(`${SCRIPT}?action=getRecord&reg=${encodeURIComponent(fetchID)}&token=${TOKEN}`);
         const j = await r.json();
         if (j?.status==="ok"&&j?.data) {
           const d=j.data;
@@ -755,6 +797,34 @@ Return JSON only: {"pharma":"...","nonpharma":"...","referrals":"...","investiga
         {/* ── TAB 0: C+P Status ── */}
         {tab===0&&(
           <div>
+            {/* Quick Launch Pad */}
+            <Card style={{background:"linear-gradient(135deg,#0d1f2d,#0d3b47)",border:"none"}}>
+              <p style={{margin:"0 0 12px",fontSize:12,fontWeight:700,color:"#9FE1CB",
+                textTransform:"uppercase",letterSpacing:"0.1em"}}>
+                🖥️ Launch Assessment Tools — Open on clinician screen for subject
+              </p>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8}}>
+                {[
+                  {label:"eSMART-C",sub:"Child Cognitive",url:"https://esmart-c.vercel.app",color:"#0C447C",icon:"🧠"},
+                  {label:"eSMART-P",sub:"Parent Questionnaire",url:"https://esmart-p.vercel.app",color:"#633806",icon:"👨‍👩‍👧"},
+                  {label:"eSMART-V",sub:"Clinician Workstation",url:"https://esmart-v.vercel.app",color:"#712B13",icon:"🏥"},
+                  {label:"Weekly Tracker",sub:"Parent Progress",url:`https://esmart-weekly.vercel.app${autoID&&!autoID.includes("XXX")?`?reg=${autoID}`:""}`,color:"#1e3a5f",icon:"📱"},
+                ].map(({label,sub,url,color,icon})=>(
+                  <button key={label} onClick={()=>window.open(url,"_blank")}
+                    style={{padding:"12px 8px",borderRadius:10,border:"none",
+                      background:color,color:"white",cursor:"pointer",textAlign:"center"}}>
+                    <div style={{fontSize:22,marginBottom:4}}>{icon}</div>
+                    <div style={{fontSize:12,fontWeight:700}}>{label}</div>
+                    <div style={{fontSize:10,opacity:0.7}}>{sub}</div>
+                    <div style={{marginTop:6,padding:"3px 8px",borderRadius:6,
+                      background:"rgba(255,255,255,0.15)",fontSize:10,fontWeight:600}}>
+                      🖥 Open Now
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </Card>
+
             {loadingCP&&(
               <div style={{background:"#eff6ff",borderRadius:10,padding:"12px 16px",
                 marginBottom:12,border:"1px solid #bfdbfe",fontSize:12,color:"#1d4ed8"}}>
