@@ -222,10 +222,12 @@ function ReportModal({subject, mode, autoID: propAutoID, onClose}) {
     const tryIDs = [autoID];
     if (oldFileNo && oldFileNo !== autoID) tryIDs.push(oldFileNo);
 
+    const childName = encodeURIComponent(name||"");
     const tryFetch = async () => {
       for (const id of tryIDs) {
         try {
-          const r = await fetch(`${SCRIPT}?action=getRecord&reg=${encodeURIComponent(id)}&token=${TOKEN}`);
+          const url = `${SCRIPT}?action=getRecord&reg=${encodeURIComponent(id)}&name=${childName}&token=${TOKEN}`;
+          const r = await fetch(url);
           const j = await r.json();
           if (j?.status==="ok"&&j?.data) {
             const d = j.data;
@@ -328,22 +330,22 @@ function ReportModal({subject, mode, autoID: propAutoID, onClose}) {
                 </div>
               </div>
               <Section title="FIS Subtest Scores" color="#1d4ed8">
-                <Row label="Total Correct" value={safeVal(s["FIS_Correct"]||s["FIS Total Correct"])}/>
-                <Row label="IQ Estimate" value={safeVal(s["FIS_IQ"]||s["FIS IQ Estimate"])} highlight/>
-                <Row label="Mental Age" value={safeVal(s["FIS_MA"]||s["FIS Mental Age (yrs)"])}/>
-                <Row label="IQ Band" value={safeVal(s["FIS_Band"]||s["FIS IQ Band"])}/>
+                <Row label="Total Correct" value={safeVal(s["FIS_Correct"]||s["FIS Total Correct"]||s["FIS Total"])}/>
+                <Row label="IQ Estimate" value={safeVal(s["FIS_IQ"]||s["FIS IQ Estimate"]||s["FIS IQ"])} highlight/>
+                <Row label="Mental Age (yrs)" value={safeVal(s["FIS_MA"]||s["FIS Mental Age (yrs)"]||s["FIS Mental Age"])}/>
+                <Row label="IQ Band" value={safeVal(s["FIS_Band"]||s["FIS IQ Band"]||s["FIS Band"])}/>
                 <Row label="Percentile" value={safeVal(s["FIS_Label"]||s["FIS Percentile"])}/>
               </Section>
               <Section title="SCSS Cognitive & Personality Profile" color="#7c3aed">
-                <Row label="Cognitive Quotient" value={safeVal(s["SCSS Cognitive Quotient"]||s["SCSS CQ"])} highlight/>
-                <Row label="Cognitive Style" value={safeVal(s["SCSS Cognitive Style"])}/>
-                <Row label="EQ Score" value={safeVal(s["SCSS EQ Score"]||s["SCSS EQ"])} highlight/>
-                <Row label="EQ Band" value={safeVal(s["SCSS EQ Band"])}/>
-                <Row label="Mental Health Index" value={safeVal(s["SCSS Mental Health Index"]||s["SCSS MHI"])}/>
-                <Row label="Combined Risk Index" value={safeVal(s["SCSS Combined Risk Index"]||s["SCSS CRI"])}/>
-                <Row label="DSM-5 Cluster" value={safeVal(s["SCSS DSM-5 Cluster"]||s["SCSS DSM Cluster"])}/>
-                <Row label="DSM-5 Features" value={safeVal(s["SCSS DSM-5 Features"]||s["SCSS DSM Features"])}/>
-                <Row label="Validity" value={safeVal(s["SCSS Validity"]||s["SCSS Final Validity"]||s["SCSS_Validity"])}/>
+                <Row label="Cognitive Quotient" value={safeVal(s["SCSS Cognitive Quotient"]||s["SCSS CQ"]||s["_col33"])} highlight/>
+                <Row label="Cognitive Style" value={safeVal(s["SCSS Cognitive Style"]||s["_col34"])}/>
+                <Row label="EQ Score" value={safeVal(s["SCSS EQ Score"]||s["SCSS EQ"]||s["_col35"])} highlight/>
+                <Row label="EQ Band" value={safeVal(s["SCSS EQ Band"]||s["_col36"])}/>
+                <Row label="Mental Health Index" value={safeVal(s["SCSS Mental Health Index"]||s["SCSS MHI"]||s["_col37"])}/>
+                <Row label="Combined Risk Index" value={safeVal(s["SCSS Combined Risk Index"]||s["SCSS CRI"]||s["_col38"])}/>
+                <Row label="DSM-5 Cluster" value={safeVal(s["SCSS DSM-5 Cluster"]||s["SCSS DSM Cluster"]||s["_col39"])}/>
+                <Row label="DSM-5 Features" value={safeVal(s["SCSS DSM-5 Features"]||s["SCSS DSM Features"]||s["_col40"])}/>
+                <Row label="Validity" value={safeVal(s["SCSS Validity"]||s["SCSS Final Validity"]||s["SCSS_Validity"]||s["_col45"])}/>
               </Section>
               <Section title="Assessment Details" color="#64748b">
                 <Row label="Child Name" value={name}/>
